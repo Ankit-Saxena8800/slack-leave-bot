@@ -1,0 +1,8 @@
+Dashboard Verification Results
+================================
+
+Overview Stats:
+{"period":"week","total_leaves":18,"compliant_count":12,"non_compliant_count":6,"pending_reminders":3,"compliance_rate":66.7}
+
+Database Health:
+{"status":"healthy","tables":{"leave_events":18,"reminder_events":3,"daily_aggregates":1}}

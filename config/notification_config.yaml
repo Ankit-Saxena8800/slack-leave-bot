@@ -1,0 +1,76 @@
+# Notification and reminder configuration for Slack Leave Bot
+
+# Reminder escalation schedule
+# TESTING MODE: 2-minute reminder for quick testing
+reminder_schedule:
+  levels:
+    # Reminder after 2 minutes (for testing)
+    - name: "first_followup"
+      delay_minutes: 2
+      channels: ["thread"]
+      template: "thread_reminder.first_followup"
+      action: "thread_reminder_sent"
+
+# Verification workflow configuration
+verification_workflow:
+  grace_period_minutes: 30
+  re_check_intervals_hours: [12, 24, 48]  # Re-check at these intervals
+  max_re_checks: 3
+  escalation_hours: 72
+  send_acknowledgment: true
+
+# Channel configuration
+channels:
+  dm:
+    enabled: true
+    rate_limit_per_user: 5  # Max 5 DMs per user per day
+
+  thread:
+    enabled: true
+    update_original: true  # Update original thread reply
+
+  admin:
+    enabled: true
+    admin_channel_id: ""  # Set from environment variable
+    hr_user_ids: []  # Set from environment variable
+    batch_notifications: true  # Send daily summary instead of individual
+    batch_time: "17:00"  # Send daily summary at 5 PM
+
+  email:
+    enabled: false
+    smtp_host: ""
+    smtp_port: 587
+    from_address: "leave-bot@company.com"
+
+  sms:
+    enabled: false
+    provider: "twilio"
+
+# Rate limiting
+rate_limits:
+  reminders_per_user_per_day: 5
+  zoho_checks_per_user_per_day: 10
+  global_messages_per_minute: 20
+
+# Compliance thresholds
+compliance:
+  warning_threshold_hours: 24  # Warn after 24 hours
+  critical_threshold_hours: 72  # Critical after 72 hours
+  compliance_target_percentage: 90  # Target 90% compliance
+
+# Business rules
+business_rules:
+  working_days_only: true
+  skip_weekends: true
+  skip_holidays: true
+  holiday_calendar: "US"  # ISO country code
+  timezone: "America/New_York"
+
+# Feature flags
+features:
+  analytics_enabled: true
+  approval_workflow_enabled: false
+  multi_level_reminders: false  # Simple 24-hour reminder only
+  grace_period_enabled: false  # Check Zoho immediately
+  auto_escalation: false  # No escalation, just simple reminder
+  daily_summary_enabled: false

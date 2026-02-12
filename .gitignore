@@ -1,0 +1,37 @@
+# Environment and secrets
+.env
+.env.backup
+.env.test
+
+# Bot runtime files
+*.log
+.bot.lock
+pending_reminders.json
+.processed_messages.json
+bot_analytics.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+mcp-venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test_*.py
+*_test.py
+*.test.json
+*.backup.json
+
+# Dashboard (not needed for bot)
+dashboard/

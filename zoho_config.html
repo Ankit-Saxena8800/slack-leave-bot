@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Zoho Setup</title>
+    <style>
+        body { font-family: Arial; max-width: 600px; margin: 50px auto; padding: 20px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; font-size: 16px; }
+        button { background: #4CAF50; color: white; padding: 15px 30px; font-size: 18px; border: none; cursor: pointer; width: 100%; }
+        button:hover { background: #45a049; }
+        .step { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>Zoho People API Setup</h1>
+
+    <div class="step">
+        <h3>Step 1: Create Self Client</h3>
+        <p>In the Zoho API Console tab, click <b>CREATE</b> to create a Self Client (if not already created)</p>
+    </div>
+
+    <div class="step">
+        <h3>Step 2: Copy Credentials</h3>
+        <p>Copy the <b>Client ID</b> and <b>Client Secret</b> from Zoho and paste below:</p>
+        <input type="text" id="clientId" placeholder="Client ID (e.g., 1000.XXXX...)">
+        <input type="text" id="clientSecret" placeholder="Client Secret">
+    </div>
+
+    <div class="step">
+        <h3>Step 3: Generate Code</h3>
+        <p>In Zoho Console, click <b>Generate Code</b>, enter this scope:</p>
+        <code style="background:#ddd;padding:5px;display:block;margin:10px 0;">ZohoPeople.forms.READ,ZohoPeople.leave.READ,ZohoPeople.employee.READ</code>
+        <p>Set duration to <b>10 minutes</b>, click Create, then paste the code:</p>
+        <input type="text" id="authCode" placeholder="Authorization Code">
+    </div>
+
+    <button onclick="setup()">Complete Setup</button>
+
+    <div id="result" style="margin-top:20px;"></div>
+
+    <script>
+    async function setup() {
+        const clientId = document.getElementById('clientId').value.trim();
+        const clientSecret = document.getElementById('clientSecret').value.trim();
+        const authCode = document.getElementById('authCode').value.trim();
+
+        if (!clientId || !clientSecret || !authCode) {
+            alert('Please fill in all fields');
+            return;
+        }
+
+        document.getElementById('result').innerHTML = 'Getting refresh token...';
+
+        // Exchange code for refresh token
+        try {
+            const resp = await fetch('https://accounts.zoho.com/oauth/v2/token', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({
+                    code: authCode,
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    grant_type: 'authorization_code'
+                })
+            });
+            const data = await resp.json();
+
+            if (data.refresh_token) {
+                // Save to local file via local server
+                const config = {
+                    ZOHO_CLIENT_ID: clientId,
+                    ZOHO_CLIENT_SECRET: clientSecret,
+                    ZOHO_REFRESH_TOKEN: data.refresh_token
+                };
+
+                document.getElementById('result').innerHTML = `
+                    <h3 style="color:green">Success!</h3>
+                    <p>Copy these values to your .env file:</p>
+                    <textarea style="width:100%;height:150px;font-family:monospace;">ZOHO_CLIENT_ID=${clientId}
+ZOHO_CLIENT_SECRET=${clientSecret}
+ZOHO_REFRESH_TOKEN=${data.refresh_token}</textarea>
+                    <p>Or run this command in terminal:</p>
+                    <code style="background:#ddd;padding:10px;display:block;word-break:break-all;">
+echo "ZOHO_CLIENT_ID=${clientId}" >> ~/.slack-leave-bot/.env && echo "ZOHO_CLIENT_SECRET=${clientSecret}" >> ~/.slack-leave-bot/.env && echo "ZOHO_REFRESH_TOKEN=${data.refresh_token}" >> ~/.slack-leave-bot/.env
+                    </code>
+                `;
+            } else {
+                document.getElementById('result').innerHTML = `<p style="color:red">Error: ${JSON.stringify(data)}</p><p>The authorization code may have expired. Generate a new one in Zoho Console.</p>`;
+            }
+        } catch (e) {
+            document.getElementById('result').innerHTML = `<p style="color:red">Error: ${e.message}</p>`;
+        }
+    }
+    </script>
+</body>
+</html>

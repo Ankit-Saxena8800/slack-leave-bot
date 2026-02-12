@@ -1,0 +1,105 @@
+# Message templates for Slack Leave Bot
+# Variables available: {user_id}, {user_name}, {user_email}, {leave_dates}, {leave_dates_formatted}
+
+templates:
+  # Thread reply templates
+  thread_reply:
+    leave_found:
+      en: "Thank you <@{user_id}> for informing and applying on Zoho! ✅ Your leave/WFH is noted."
+
+    leave_not_found:
+      en: "Hi <@{user_id}>, I couldn't find your leave/WFH application on Zoho for {leave_dates_formatted}. Please apply on Zoho as well. I'll check again in 24 hours. 📋"
+
+    grace_period_acknowledgment:
+      en: "Thanks <@{user_id}>! I'll check Zoho in 30 minutes to verify your leave application for {leave_dates_formatted}. ⏰"
+
+  # Thread reminder templates (posted as follow-up in same thread)
+  thread_reminder:
+    first_followup:
+      en: "⚠️ Reminder: <@{user_id}>, your leave/WFH for {leave_dates_formatted} is still not applied on Zoho. Please apply as soon as possible. CC: <@{manager_slack_id}>"
+
+  # Direct message reminder templates
+  dm_reminder:
+    first_followup:
+      en: |
+        Hi {user_name}! 👋
+
+        This is a reminder that you haven't applied for leave/WFH on Zoho yet.
+
+        *Dates:* {leave_dates_formatted}
+
+        Please apply on Zoho at your earliest convenience.
+
+    second_escalation:
+      en: |
+        Hi {user_name},
+
+        Please ensure you apply for your leave/WFH on Zoho by end of day.
+
+        *Dates:* {leave_dates_formatted}
+        *Status:* Still pending on Zoho
+
+        If you've already applied, it may take a few minutes to sync.
+
+    urgent:
+      en: |
+        ⚠️ *URGENT: Leave Application Required*
+
+        Hi {user_name},
+
+        Your leave/WFH application is still not found on Zoho:
+        *Dates:* {leave_dates_formatted}
+
+        Please apply immediately or contact HR if you need assistance.
+
+  # Admin notification templates
+  admin_notification:
+    user_non_compliant:
+      en: |
+        ⚠️ *Non-Compliance Alert*
+
+        User: <@{user_id}> ({user_email})
+        Dates: {leave_dates_formatted}
+        Reminders sent: {reminder_count}
+        Duration: {hours_elapsed} hours since mention
+
+        User has not applied leave on Zoho after multiple reminders.
+
+    escalation_summary:
+      en: |
+        📊 *Daily Non-Compliance Summary*
+
+        {non_compliant_count} users have pending leave applications:
+
+        {user_list}
+
+        Please follow up with these users.
+
+  # Approval workflow templates (Phase 5)
+  approval_request:
+    manager_approval:
+      en: |
+        🔔 *Leave Approval Request*
+
+        *Employee:* <@{user_id}>
+        *Dates:* {leave_dates_formatted}
+        *Duration:* {duration_days} days
+        *Type:* {leave_type}
+
+        Please review and approve/reject this request.
+
+  # Verification workflow templates
+  verification:
+    re_check_notification:
+      en: "Checking Zoho again for <@{user_id}>'s leave application ({leave_dates_formatted})..."
+
+    verified_after_reminder:
+      en: "Great! <@{user_id}> has now applied for leave on Zoho. ✅ Thanks for following up!"
+
+# Date formatting templates
+date_formats:
+  single_date: "{date}"
+  date_range: "{start_date} to {end_date}"
+  multiple_dates: "{dates_list}"
+  date_format: "%b %d, %Y"  # Jan 15, 2026
+  date_format_short: "%m/%d"  # 01/15

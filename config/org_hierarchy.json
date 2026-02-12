@@ -1,0 +1,125 @@
+{
+  "organization": {
+    "name": "ACME Corporation",
+    "departments": [
+      {
+        "id": "eng",
+        "name": "Engineering",
+        "head": "jane.smith@acme.com"
+      },
+      {
+        "id": "product",
+        "name": "Product",
+        "head": "robert.wilson@acme.com"
+      },
+      {
+        "id": "hr",
+        "name": "Human Resources",
+        "head": "emma.davis@acme.com"
+      }
+    ],
+    "employees": [
+      {
+        "email": "john.doe@acme.com",
+        "name": "John Doe",
+        "slack_id": "U01234ABCDE",
+        "department": "eng",
+        "manager": "jane.smith@acme.com",
+        "position": "Senior Software Engineer",
+        "employee_id": "EMP001"
+      },
+      {
+        "email": "alice.brown@acme.com",
+        "name": "Alice Brown",
+        "slack_id": "U02345BCDEF",
+        "department": "eng",
+        "manager": "jane.smith@acme.com",
+        "position": "Software Engineer",
+        "employee_id": "EMP002"
+      },
+      {
+        "email": "bob.johnson@acme.com",
+        "name": "Bob Johnson",
+        "slack_id": "U03456CDEFG",
+        "department": "eng",
+        "manager": "jane.smith@acme.com",
+        "position": "Junior Software Engineer",
+        "employee_id": "EMP003"
+      },
+      {
+        "email": "jane.smith@acme.com",
+        "name": "Jane Smith",
+        "slack_id": "U04567DEFGH",
+        "department": "eng",
+        "manager": "robert.wilson@acme.com",
+        "position": "Engineering Manager",
+        "employee_id": "MGR001"
+      },
+      {
+        "email": "mike.chen@acme.com",
+        "name": "Mike Chen",
+        "slack_id": "U05678EFGHI",
+        "department": "product",
+        "manager": "robert.wilson@acme.com",
+        "position": "Product Manager",
+        "employee_id": "EMP004"
+      },
+      {
+        "email": "sarah.lee@acme.com",
+        "name": "Sarah Lee",
+        "slack_id": "U06789FGHIJ",
+        "department": "product",
+        "manager": "robert.wilson@acme.com",
+        "position": "Product Designer",
+        "employee_id": "EMP005"
+      },
+      {
+        "email": "robert.wilson@acme.com",
+        "name": "Robert Wilson",
+        "slack_id": "U07890GHIJK",
+        "department": "product",
+        "manager": "emma.davis@acme.com",
+        "position": "VP of Product",
+        "employee_id": "VP001",
+        "is_senior_manager": true
+      },
+      {
+        "email": "emma.davis@acme.com",
+        "name": "Emma Davis",
+        "slack_id": "U08901HIJKL",
+        "department": "hr",
+        "manager": null,
+        "position": "HR Director",
+        "employee_id": "HR001",
+        "is_senior_manager": true,
+        "is_hr": true
+      },
+      {
+        "email": "lisa.kumar@acme.com",
+        "name": "Lisa Kumar",
+        "slack_id": "U09012IJKLM",
+        "department": "hr",
+        "manager": "emma.davis@acme.com",
+        "position": "HR Manager",
+        "employee_id": "HR002",
+        "is_hr": true
+      },
+      {
+        "email": "tom.anderson@acme.com",
+        "name": "Tom Anderson",
+        "slack_id": "U10123JKLMN",
+        "department": "eng",
+        "manager": "jane.smith@acme.com",
+        "position": "DevOps Engineer",
+        "employee_id": "EMP006"
+      }
+    ],
+    "approval_rules": {
+      "auto_approve_days": 2,
+      "standard_approval_days": 5,
+      "senior_manager_approval_days": 5,
+      "timeout_hours": 48,
+      "escalation_enabled": true
+    }
+  }
+}

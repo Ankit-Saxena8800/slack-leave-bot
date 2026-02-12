@@ -1,0 +1,152 @@
+{
+  "U08HXUP5U3D_1770297074.900949": {
+    "user_id": "U08HXUP5U3D",
+    "user_email": "ankit.saxena@stage.in",
+    "user_name": "Ankit Saxena",
+    "channel_id": "C0AALBN04KW",
+    "message_ts": "1770297074.900949",
+    "leave_dates": [
+      "2026-02-06"
+    ],
+    "first_reminder_sent": "2026-02-05T18:42:12.954504",
+    "followup_due": "2026-02-06T06:42:12.954519",
+    "followup_sent": true,
+    "resolved": false,
+    "followup_sent_at": "2026-02-06T08:14:53.921589"
+  },
+  "U08HXUP5U3D_1770701272.860319": {
+    "user_id": "U08HXUP5U3D",
+    "user_email": "ankit.saxena@stage.in",
+    "user_name": "Ankit Saxena",
+    "channel_id": "C0AALBN04KW",
+    "message_ts": "1770701272.860319",
+    "leave_dates": [
+      "2026-02-11"
+    ],
+    "first_reminder_sent": "2026-02-10T10:58:24.277041",
+    "followup_due": "2026-02-10T22:58:24.277046",
+    "followup_sent": false,
+    "resolved": false
+  },
+  "U08HXUP5U3D_1770712274.674219": {
+    "user_id": "U08HXUP5U3D",
+    "user_email": "ankit.saxena@stage.in",
+    "user_name": "Ankit Saxena",
+    "channel_id": "C0AALBN04KW",
+    "message_ts": "1770712274.674219",
+    "leave_dates": [
+      "2026-02-13"
+    ],
+    "first_reminder_sent": "2026-02-10T14:02:18.010959",
+    "followup_due": "2026-02-11T02:02:18.010965",
+    "followup_sent": false,
+    "resolved": false
+  },
+  "U08HXUP5U3D_1770714509.752409": {
+    "user_id": "U08HXUP5U3D",
+    "user_email": "ankit.saxena@stage.in",
+    "user_name": "Ankit Saxena",
+    "channel_id": "C0AALBN04KW",
+    "message_ts": "1770714509.752409",
+    "leave_dates": [
+      "2026-02-12"
+    ],
+    "first_reminder_sent": "2026-02-10T14:39:18.403659",
+    "followup_due": "2026-02-11T02:39:18.403665",
+    "followup_sent": false,
+    "resolved": false
+  },
+  "U08HXUP5U3D_1770714643.991759": {
+    "user_id": "U08HXUP5U3D",
+    "user_email": "ankit.saxena@stage.in",
+    "user_name": "Ankit Saxena",
+    "channel_id": "C0AALBN04KW",
+    "message_ts": "1770714643.991759",
+    "leave_dates": [
+      "2026-02-11"
+    ],
+    "first_reminder_sent": "2026-02-10T14:41:22.397540",
+    "followup_due": "2026-02-11T02:41:22.397547",
+    "followup_sent": false,
+    "resolved": false
+  },
+  "U08HXUP5U3D_1770714894.337609": {
+    "user_id": "U08HXUP5U3D",
+    "user_email": "ankit.saxena@stage.in",
+    "user_name": "Ankit Saxena",
+    "channel_id": "C0AALBN04KW",
+    "message_ts": "1770714894.337609",
+    "leave_dates": [
+      "2026-02-10"
+    ],
+    "created_at": "2026-02-10T14:45:50.095820",
+    "reminder_level": 0,
+    "reminder_history": [],
+    "next_reminder_due": "2026-02-11T02:45:50.095820",
+    "resolved": false
+  },
+  "U08HXUP5U3D_1770715304.767409": {
+    "user_id": "U08HXUP5U3D",
+    "user_email": "ankit.saxena@stage.in",
+    "user_name": "Ankit Saxena",
+    "channel_id": "C0AALBN04KW",
+    "message_ts": "1770715304.767409",
+    "leave_dates": [
+      "2026-02-12"
+    ],
+    "created_at": "2026-02-10T14:52:08.793176",
+    "reminder_level": 0,
+    "reminder_history": [],
+    "next_reminder_due": "2026-02-11T02:52:08.793176",
+    "resolved": false
+  },
+  "U08HXUP5U3D_1770716401.598969": {
+    "user_id": "U08HXUP5U3D",
+    "user_email": "ankit.saxena@stage.in",
+    "user_name": "Ankit Saxena",
+    "channel_id": "C0AALBN04KW",
+    "message_ts": "1770716401.598969",
+    "leave_dates": [
+      "2026-02-10"
+    ],
+    "created_at": "2026-02-10T15:10:41.292070",
+    "reminder_level": 0,
+    "reminder_history": [],
+    "next_reminder_due": "2026-02-11T03:10:41.292070",
+    "resolved": false
+  },
+  "U08HXUP5U3D_1770717769.709089": {
+    "user_id": "U08HXUP5U3D",
+    "user_email": "ankit.saxena@stage.in",
+    "user_name": "Ankit Saxena",
+    "channel_id": "C0AALBN04KW",
+    "message_ts": "1770717769.709089",
+    "leave_dates": [
+      "2026-03-02",
+      "2026-03-03",
+      "2026-03-06"
+    ],
+    "created_at": "2026-02-10T15:32:57.153574",
+    "reminder_level": 0,
+    "reminder_history": [],
+    "next_reminder_due": "2026-02-11T03:32:57.153574",
+    "resolved": false
+  },
+  "U08HXUP5U3D_1770720175.428119": {
+    "user_id": "U08HXUP5U3D",
+    "user_email": "ankit.saxena@stage.in",
+    "user_name": "Ankit Saxena",
+    "channel_id": "C0AALBN04KW",
+    "message_ts": "1770720175.428119",
+    "leave_dates": [
+      "2026-03-02",
+      "2026-03-03",
+      "2026-03-06"
+    ],
+    "created_at": "2026-02-10T16:13:09.437854",
+    "reminder_level": 0,
+    "reminder_history": [],
+    "next_reminder_due": "2026-02-11T04:13:09.437854",
+    "resolved": false
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "U08HXUP5U3D_1770895654.460569": {
+    "user_id": "U08HXUP5U3D",
+    "user_email": "ankit.saxena@stage.in",
+    "user_name": "Ankit Saxena",
+    "channel_id": "C0AALBN04KW",
+    "message_ts": "1770895654.460569",
+    "leave_dates": [
+      "2026-02-26"
+    ],
+    "created_at": "2026-02-12T16:57:38.346078",
+    "reminder_level": 2,
+    "reminder_history": [
+      {
+        "level": 1,
+        "sent_at": "2026-02-12T17:00:45.238523",
+        "action": "sent_to_thread"
+      },
+      {
+        "level": 2,
+        "sent_at": "2026-02-12T17:02:50.044388",
+        "action": "sent_to_thread"
+      }
+    ],
+    "next_reminder_due": "2026-02-12T17:03:38.346078",
+    "resolved": false
+  }
+}

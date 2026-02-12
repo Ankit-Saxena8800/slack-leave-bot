@@ -1,0 +1,13 @@
+.env
+*.log
+*.db
+__pycache__
+*.pyc
+.git
+.gitignore
+venv/
+mcp-venv/
+dashboard/
+.bot.lock
+.processed_messages.json
+pending_reminders.json

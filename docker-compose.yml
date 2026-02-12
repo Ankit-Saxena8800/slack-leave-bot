@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  bot:
+    build: .
+    container_name: slack-leave-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./pending_reminders.json:/app/pending_reminders.json
+      - ./bot.log:/app/bot.log
+    environment:
+      - ANALYTICS_ENABLED=false
