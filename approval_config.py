@@ -5,7 +5,7 @@ Defines approval rules, thresholds, timeouts, and escalation logic
 
 import os
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from enum import Enum
 
