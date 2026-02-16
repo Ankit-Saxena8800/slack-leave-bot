@@ -1,0 +1,33 @@
+services:
+  - type: worker
+    name: slack-leave-bot
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    envVars:
+      - key: SLACK_BOT_TOKEN
+        sync: false
+      - key: LEAVE_CHANNEL_ID
+        value: C03C4QAPABU
+      - key: ADMIN_CHANNEL_ID
+        sync: false
+      - key: POLL_INTERVAL
+        value: 60
+      - key: ZOHO_CLIENT_ID
+        sync: false
+      - key: ZOHO_CLIENT_SECRET
+        sync: false
+      - key: ZOHO_REFRESH_TOKEN
+        sync: false
+      - key: ZOHO_DOMAIN
+        value: https://people.zoho.in
+      - key: CHECK_DAYS_RANGE
+        value: 7
+      - key: DRY_RUN
+        value: false
+      - key: TEST_MODE
+        value: false
+      - key: ANALYTICS_ENABLED
+        value: false
