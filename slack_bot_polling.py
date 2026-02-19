@@ -921,7 +921,8 @@ class SlackLeaveBotPolling:
         """Poll for new messages in the leave channel. Returns False if rate limited."""
         try:
             # Add tiny amount to last_timestamp to make it exclusive (avoid re-fetching same message)
-            oldest_timestamp = str(float(self.last_timestamp) + 0.000001)
+            # Format with max 6 decimal places for Slack API compatibility
+            oldest_timestamp = f"{float(self.last_timestamp) + 0.000001:.6f}"
 
             result = self.client.conversations_history(
                 channel=self.leave_channel_id,
