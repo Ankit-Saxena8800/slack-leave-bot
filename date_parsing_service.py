@@ -84,14 +84,18 @@ class DateParsingService:
 
     def _compile_patterns(self):
         """Compile regex patterns for date parsing"""
-        # Date range patterns
+        # Date range patterns (ordered by specificity - most specific first!)
         self.range_patterns = [
-            # "15th to 20th", "15-20", "15th-20th"
-            re.compile(r'(\d{1,2})(?:st|nd|rd|th)?\s*(?:to|-)\s*(\d{1,2})(?:st|nd|rd|th)?(?:\s+(?:of\s+)?(\w+))?', re.IGNORECASE),
+            # "23rd Feb 2026 to 25th Feb 2026" - Full date with year
+            re.compile(r'(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4})\s+to\s+(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4})', re.IGNORECASE),
+            # "Feb 23 2026 to Feb 25 2026" - Month first with year
+            re.compile(r'(\w+\s+\d{1,2}(?:st|nd|rd|th)?\s+\d{4})\s+to\s+(\w+\s+\d{1,2}(?:st|nd|rd|th)?\s+\d{4})', re.IGNORECASE),
             # "from Jan 15 to Jan 20", "from 15th Jan to 20th Jan"
             re.compile(r'from\s+(\w+\s+\d{1,2}|\d{1,2}\s+\w+)\s+to\s+(\w+\s+\d{1,2}|\d{1,2}\s+\w+)', re.IGNORECASE),
             # "Jan 15 - Jan 20", "15 Jan - 20 Jan"
             re.compile(r'(\w+\s+\d{1,2}|\d{1,2}\s+\w+)\s*-\s*(\w+\s+\d{1,2}|\d{1,2}\s+\w+)', re.IGNORECASE),
+            # "15th to 20th" (no month/year) - LAST as it's most greedy
+            re.compile(r'(?<!\d)(\d{1,2})(?:st|nd|rd|th)?\s*(?:to|-)\s*(\d{1,2})(?:st|nd|rd|th)?(?:\s+(?:of\s+)?(\w+))?(?!\d)', re.IGNORECASE),
         ]
 
         # Partial leave patterns
@@ -264,14 +268,26 @@ class DateParsingService:
                     now = datetime.now()
                     date_str = f"{day} {now.strftime('%B')}"
 
+            # Check if year is explicitly specified
+            has_explicit_year = bool(re.search(r'\b(20\d{2}|19\d{2})\b', date_str))
+
             # Use dateparser for flexible parsing
-            parsed = dateparser.parse(
-                date_str,
-                settings={
-                    'PREFER_DATES_FROM': 'future',
-                    'RELATIVE_BASE': datetime.now()
-                }
-            )
+            # If year is explicit, don't use PREFER_DATES_FROM (causes wrong interpretation)
+            if has_explicit_year:
+                parsed = dateparser.parse(
+                    date_str,
+                    settings={
+                        'RELATIVE_BASE': datetime.now()
+                    }
+                )
+            else:
+                parsed = dateparser.parse(
+                    date_str,
+                    settings={
+                        'PREFER_DATES_FROM': 'future',
+                        'RELATIVE_BASE': datetime.now()
+                    }
+                )
 
             return parsed
 
