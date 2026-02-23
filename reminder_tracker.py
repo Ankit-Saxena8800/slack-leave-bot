@@ -163,6 +163,18 @@ class ReminderTracker:
 
             # Skip if already at max level
             if current_level == ReminderLevel.URGENT:
+                # URGENT reminders should only be sent ONCE at 72 hours
+                # Check if we've already sent an URGENT reminder
+                reminder_history = reminder.get("reminder_history", [])
+                urgent_already_sent = any(
+                    h.get("level") == ReminderLevel.URGENT.value
+                    for h in reminder_history
+                )
+
+                if urgent_already_sent:
+                    # Already sent URGENT reminder - stop escalating
+                    continue
+
                 # Check if we need to escalate to admin
                 created_at = datetime.fromisoformat(reminder["created_at"])
                 hours_elapsed = (now - created_at).total_seconds() / 3600

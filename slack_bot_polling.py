@@ -24,6 +24,7 @@ from verification_workflow import get_verification_manager
 from approval_workflow import get_approval_workflow
 from interactive_handler import get_interactive_handler
 from org_hierarchy import get_org_hierarchy
+from excluded_users_filter import get_filter as get_excluded_users_filter
 
 logger = logging.getLogger(__name__)
 
@@ -306,6 +307,17 @@ class SlackLeaveBotPolling:
             logger.error(f"Failed to get user name: {e}")
         return "Unknown"
 
+    def _get_user_real_name(self, user_id: str) -> str:
+        """Get user's real/full name from Slack"""
+        try:
+            result = self.client.users_info(user=user_id)
+            if result["ok"]:
+                profile = result["user"]["profile"]
+                return profile.get("real_name") or profile.get("display_name") or "Unknown"
+        except SlackApiError as e:
+            logger.error(f"Failed to get user real name: {e}")
+        return "Unknown"
+
     def _get_user_id_by_email(self, email: str) -> Optional[str]:
         """Get Slack user ID from email address"""
         if not email:
@@ -321,16 +333,38 @@ class SlackLeaveBotPolling:
         return None
 
     def _send_thread_reply(self, channel: str, thread_ts: str, text: str):
-        """Send a reply in a thread"""
+        """Send a reply in a thread with deduplication"""
         if self.dry_run:
             logger.info(f"[DRY RUN] Would send thread reply: {text[:100]}...")
             return
+
+        # Deduplication: Check if we just sent this exact message to this thread
+        dedup_key = f"{channel}_{thread_ts}_{text[:100]}"
+        if not hasattr(self, '_recent_messages'):
+            self._recent_messages = {}
+
+        # Check if we sent this message in the last 60 seconds
+        now = time.time()
+        if dedup_key in self._recent_messages:
+            last_sent = self._recent_messages[dedup_key]
+            if now - last_sent < 60:
+                logger.warning(f"Skipping duplicate message (sent {now - last_sent:.1f}s ago)")
+                return
+
         try:
             self.client.chat_postMessage(
                 channel=channel,
                 thread_ts=thread_ts,
                 text=text
             )
+            # Record this message
+            self._recent_messages[dedup_key] = now
+
+            # Clean up old entries (keep last 10 minutes)
+            self._recent_messages = {
+                k: v for k, v in self._recent_messages.items()
+                if now - v < 600
+            }
         except SlackApiError as e:
             logger.error(f"Failed to send thread reply: {e}")
 
@@ -428,14 +462,23 @@ class SlackLeaveBotPolling:
         self._save_processed_messages()
         logger.info(f"Processing leave message {msg_ts} from user {user_id}: {text[:50]}...")
 
+        # Get user info early for exclusion check
+        user_name = self._get_user_name(user_id)
+        user_real_name = self._get_user_real_name(user_id)
+
+        # Check if user is excluded (contractor/intern)
+        excluded_filter = get_excluded_users_filter()
+        if excluded_filter.is_excluded(user_name, user_real_name):
+            logger.info(f"Skipping excluded user: {user_name} ({user_real_name})")
+            return
+
         # Check if user already mentioned Zoho was applied - skip reminder
         if self._zoho_already_applied(text):
             logger.info(f"User mentioned Zoho already applied - skipping reminder")
             return
 
-        # Get user info
+        # Get user email
         user_email = self._get_user_email(user_id)
-        user_name = self._get_user_name(user_id)
 
         if not user_email:
             self._send_thread_reply(
