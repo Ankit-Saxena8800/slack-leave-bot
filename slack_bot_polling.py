@@ -31,15 +31,34 @@ logger = logging.getLogger(__name__)
 # File to persist processed messages across restarts
 PROCESSED_MESSAGES_FILE = os.path.join(os.path.dirname(__file__), ".processed_messages.json")
 
-# Leave/WFH keywords - only respond to these two cases
+# Leave/WFH keywords - respond to these patterns
 LEAVE_KEYWORDS = [
     r'\b(on\s+)?leave\b',           # "on leave", "leave"
     r'\bwfh\b',                      # "WFH"
     r'\bwork\s*(ing)?\s*from\s*home\b',  # "working from home", "work from home"
     r'\bremote\b',                   # "remote"
-    r'\bwork\s*remote\b',            # "work remote"
+    r'\bwork\s*remote(ly)?\b',       # "work remote", "work remotely"
     r'\bhome\s*office\b',            # "home office"
     r'\btelework\b',                 # "telework"
+
+    # Absence/unavailability phrases
+    r'\bday\s+off\b',                # "day off", "taking a day off"
+    r'\bunavailable\b',              # "unavailable", "I am unavailable"
+    r'\bwon\'?t\s+(be\s+)?(able\s+to\s+)?join\b',  # "won't be able to join", "won't join"
+    r'\bcan\'?t\s+(be\s+)?(able\s+to\s+)?join\b',  # "can't join", "can't be able to join"
+    r'\bnot\s+join(ing)?\b',         # "not joining"
+    r'\bunable\s+to\s+join\b',       # "unable to join"
+
+    # Sick leave phrases
+    r'\b(not\s+)?feeling\s+(well|unwell)\b',  # "not feeling well", "feeling unwell"
+    r'\b(down\s+with|caught)\s+(fever|cold|flu|covid|conjunctivitis)\b',  # "down with fever", "caught conjunctivitis"
+    r'\bsick\b',                     # "sick", "feeling sick"
+    r'\bill\b',                      # "ill", "feeling ill"
+    r'\bunwell\b',                   # "unwell"
+
+    # Medical appointments
+    r'\bdoctor\s+(visit|appointment)\b',  # "doctor visit", "doctor appointment"
+    r'\bmedical\s+(emergency|appointment)\b',  # "medical emergency"
 ]
 
 # Patterns that indicate Zoho was already applied - skip reminder
