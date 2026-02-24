@@ -25,6 +25,7 @@ from approval_workflow import get_approval_workflow
 from interactive_handler import get_interactive_handler
 from org_hierarchy import get_org_hierarchy
 from excluded_users_filter import get_filter as get_excluded_users_filter
+from ai_classifier import get_ai_classifier
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,7 @@ class SlackLeaveBotPolling:
         self.notification_router = get_notification_router()
         self.verification_manager = get_verification_manager()
         self.approval_workflow = get_approval_workflow()
+        self.ai_classifier = get_ai_classifier()  # AI-powered message classification
 
         # Initialize or configure interactive handler with callback
         self.interactive_handler = get_interactive_handler()
@@ -208,8 +210,27 @@ class SlackLeaveBotPolling:
         except Exception as e:
             logger.error(f"Failed to save processed messages: {e}")
 
-    def _is_leave_message(self, text: str) -> bool:
-        """Check if the message is about taking leave"""
+    def _is_leave_message(self, text: str, user_name: str = "User") -> bool:
+        """
+        Check if the message is about taking leave
+        Uses AI classification if available, falls back to regex
+        """
+        # Try AI classification first (more accurate)
+        if self.ai_classifier and self.ai_classifier.enabled:
+            try:
+                classification = self.ai_classifier.classify_message(text, user_name)
+                if classification:
+                    # Store classification for later use
+                    if not hasattr(self, '_last_ai_classification'):
+                        self._last_ai_classification = {}
+                    self._last_ai_classification[text[:100]] = classification
+
+                    logger.info(f"🤖 AI Classification: {classification.leave_type} (confidence: {classification.confidence:.2f})")
+                    return classification.is_leave_message and classification.confidence >= 0.6
+            except Exception as e:
+                logger.warning(f"AI classification failed, falling back to regex: {e}")
+
+        # Fallback to regex patterns
         text_lower = text.lower()
         for pattern in LEAVE_KEYWORDS:
             if re.search(pattern, text_lower, re.IGNORECASE):
@@ -498,15 +519,15 @@ class SlackLeaveBotPolling:
         if not text or not user_id:
             return
 
-        # Check if this is a leave-related message
-        if not self._is_leave_message(text):
+        # Get user info early for AI classification and exclusion check
+        user_name = self._get_user_name(user_id)
+        user_real_name = self._get_user_real_name(user_id)
+
+        # Check if this is a leave-related message (AI-powered or regex)
+        if not self._is_leave_message(text, user_name):
             return
 
         logger.info(f"Processing leave message {msg_ts} from user {user_id}: {text[:50]}...")
-
-        # Get user info early for exclusion check
-        user_name = self._get_user_name(user_id)
-        user_real_name = self._get_user_real_name(user_id)
 
         # Check if user is excluded (contractor/intern)
         excluded_filter = get_excluded_users_filter()
