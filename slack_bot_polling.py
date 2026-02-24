@@ -334,6 +334,9 @@ class SlackLeaveBotPolling:
 
     def _send_thread_reply(self, channel: str, thread_ts: str, text: str):
         """Send a reply in a thread with deduplication"""
+        import uuid
+        call_id = str(uuid.uuid4())[:8]
+
         if self.dry_run:
             logger.info(f"[DRY RUN] Would send thread reply: {text[:100]}...")
             return
@@ -345,18 +348,27 @@ class SlackLeaveBotPolling:
 
         # Check if we sent this message in the last 60 seconds
         now = time.time()
+        logger.info(f"[{call_id}] _send_thread_reply called - channel={channel}, thread_ts={thread_ts}, dedup_key={dedup_key[:50]}...")
+
         if dedup_key in self._recent_messages:
             last_sent = self._recent_messages[dedup_key]
             if now - last_sent < 60:
-                logger.warning(f"Skipping duplicate message (sent {now - last_sent:.1f}s ago)")
+                logger.warning(f"[{call_id}] DEDUP BLOCKED: Skipping duplicate message (sent {now - last_sent:.1f}s ago)")
                 return
+            else:
+                logger.info(f"[{call_id}] Dedup check passed (last sent {now - last_sent:.1f}s ago)")
+        else:
+            logger.info(f"[{call_id}] First time sending this message (no dedup entry)")
 
         try:
-            self.client.chat_postMessage(
+            logger.info(f"[{call_id}] Calling chat_postMessage API now...")
+            response = self.client.chat_postMessage(
                 channel=channel,
                 thread_ts=thread_ts,
                 text=text
             )
+            logger.info(f"[{call_id}] chat_postMessage SUCCESS - ts={response.get('ts', 'unknown')}")
+
             # Record this message
             self._recent_messages[dedup_key] = now
 
@@ -366,7 +378,7 @@ class SlackLeaveBotPolling:
                 if now - v < 600
             }
         except SlackApiError as e:
-            logger.error(f"Failed to send thread reply: {e}")
+            logger.error(f"[{call_id}] chat_postMessage FAILED: {e}")
 
     def _send_dm(self, user_id: str, text: str):
         """Send a direct message to a user"""
