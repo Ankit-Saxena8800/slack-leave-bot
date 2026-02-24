@@ -61,7 +61,7 @@ class AILeaveClassifier:
             prompt = self._build_classification_prompt(text, user_name)
 
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-5-20250929",
                 max_tokens=500,
                 temperature=0,
                 messages=[{"role": "user", "content": prompt}]
@@ -173,7 +173,7 @@ Examples:
 Return ONLY the JSON array."""
 
             response = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-sonnet-4-5-20250929",
                 max_tokens=300,
                 temperature=0,
                 messages=[{"role": "user", "content": prompt}]
