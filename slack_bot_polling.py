@@ -376,8 +376,40 @@ class SlackLeaveBotPolling:
             logger.debug(f"Error looking up user by email: {e}")
         return None
 
+    def _load_recent_messages(self):
+        """Load recent messages cache from persistent storage"""
+        cache_file = ".recent_messages_cache.json"
+        try:
+            if os.path.exists(cache_file):
+                with open(cache_file, 'r') as f:
+                    data = json.load(f)
+                    # Clean up expired entries on load (keep last 5 minutes)
+                    now = time.time()
+                    self._recent_messages = {
+                        k: v for k, v in data.items()
+                        if now - v < 300
+                    }
+                    logger.info(f"Loaded {len(self._recent_messages)} recent message(s) from cache")
+            else:
+                self._recent_messages = {}
+        except Exception as e:
+            logger.warning(f"Failed to load recent messages cache: {e}")
+            self._recent_messages = {}
+
+    def _save_recent_messages(self):
+        """Save recent messages cache to persistent storage"""
+        cache_file = ".recent_messages_cache.json"
+        try:
+            # Write atomically using temp file
+            temp_file = f"{cache_file}.tmp"
+            with open(temp_file, 'w') as f:
+                json.dump(self._recent_messages, f, indent=2)
+            os.replace(temp_file, cache_file)
+        except Exception as e:
+            logger.error(f"Failed to save recent messages cache: {e}")
+
     def _send_thread_reply(self, channel: str, thread_ts: str, text: str):
-        """Send a reply in a thread with deduplication"""
+        """Send a reply in a thread with persistent deduplication"""
         import uuid
         call_id = str(uuid.uuid4())[:8]
 
@@ -388,16 +420,18 @@ class SlackLeaveBotPolling:
         # Deduplication: Check if we just sent this exact message to this thread
         dedup_key = f"{channel}_{thread_ts}_{text[:100]}"
         if not hasattr(self, '_recent_messages'):
-            self._recent_messages = {}
+            self._load_recent_messages()
 
-        # Check if we sent this message in the last 60 seconds
+        # Check if we sent this message in the last 5 minutes (300 seconds)
+        # Increased from 60s to prevent duplicates across bot restarts
         now = time.time()
+        dedup_window = 300  # 5 minutes
         logger.info(f"[{call_id}] _send_thread_reply called - channel={channel}, thread_ts={thread_ts}, dedup_key={dedup_key[:50]}...")
 
         if dedup_key in self._recent_messages:
             last_sent = self._recent_messages[dedup_key]
-            if now - last_sent < 60:
-                logger.warning(f"[{call_id}] DEDUP BLOCKED: Skipping duplicate message (sent {now - last_sent:.1f}s ago)")
+            if now - last_sent < dedup_window:
+                logger.warning(f"[{call_id}] DEDUP BLOCKED: Skipping duplicate message (sent {now - last_sent:.1f}s ago, window={dedup_window}s)")
                 return
             else:
                 logger.info(f"[{call_id}] Dedup check passed (last sent {now - last_sent:.1f}s ago)")
@@ -413,14 +447,18 @@ class SlackLeaveBotPolling:
             )
             logger.info(f"[{call_id}] chat_postMessage SUCCESS - ts={response.get('ts', 'unknown')}")
 
-            # Record this message
+            # Record this message with timestamp
             self._recent_messages[dedup_key] = now
 
-            # Clean up old entries (keep last 10 minutes)
+            # Clean up old entries (keep last 10 minutes in cache)
             self._recent_messages = {
                 k: v for k, v in self._recent_messages.items()
                 if now - v < 600
             }
+
+            # Persist to disk to survive restarts
+            self._save_recent_messages()
+
         except SlackApiError as e:
             logger.error(f"[{call_id}] chat_postMessage FAILED: {e}")
 
