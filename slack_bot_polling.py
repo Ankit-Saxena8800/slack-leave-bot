@@ -186,7 +186,7 @@ class SlackLeaveBotPolling:
         return set()
 
     def _save_processed_messages(self):
-        """Save processed messages to file"""
+        """Save processed messages to file with atomic write"""
         try:
             # Only keep messages from last 7 days
             cutoff = time.time() - (7 * 24 * 60 * 60)
@@ -199,8 +199,12 @@ class SlackLeaveBotPolling:
                         messages.append(ts)
                 except (ValueError, IndexError) as e:
                     logger.warning(f"Invalid timestamp format during save: {ts}, error: {e}")
-            with open(PROCESSED_MESSAGES_FILE, 'w') as f:
-                json.dump({"messages": messages, "updated": time.time()}, f)
+
+            # Write to temp file first, then rename atomically
+            temp_file = f"{PROCESSED_MESSAGES_FILE}.tmp"
+            with open(temp_file, 'w') as f:
+                json.dump({"messages": messages, "updated": time.time()}, f, indent=2)
+            os.replace(temp_file, PROCESSED_MESSAGES_FILE)
         except Exception as e:
             logger.error(f"Failed to save processed messages: {e}")
 
@@ -487,10 +491,6 @@ class SlackLeaveBotPolling:
         if not self._is_leave_message(text):
             return
 
-        # CRITICAL: Mark as processed IMMEDIATELY before any other action
-        # This prevents duplicate processing even if bot restarts
-        self.processed_messages.add(msg_ts)
-        self._save_processed_messages()
         logger.info(f"Processing leave message {msg_ts} from user {user_id}: {text[:50]}...")
 
         # Get user info early for exclusion check
@@ -501,11 +501,15 @@ class SlackLeaveBotPolling:
         excluded_filter = get_excluded_users_filter()
         if excluded_filter.is_excluded(user_name, user_real_name):
             logger.info(f"Skipping excluded user: {user_name} ({user_real_name})")
+            self.processed_messages.add(msg_ts)
+            self._save_processed_messages()
             return
 
         # Check if user already mentioned Zoho was applied - skip reminder
         if self._zoho_already_applied(text):
             logger.info(f"User mentioned Zoho already applied - skipping reminder")
+            self.processed_messages.add(msg_ts)
+            self._save_processed_messages()
             return
 
         # Get user email
@@ -517,6 +521,8 @@ class SlackLeaveBotPolling:
                 f"Hi <@{user_id}>, I couldn't find your email in Slack. "
                 "Please ensure your email is set in your Slack profile."
             )
+            self.processed_messages.add(msg_ts)
+            self._save_processed_messages()
             return
 
         # Extract dates from message
@@ -581,6 +587,10 @@ class SlackLeaveBotPolling:
                                 except Exception as e:
                                     logger.error(f"Failed to record analytics: {e}")
 
+                            # Mark as processed - approval flow will handle next steps
+                            self.processed_messages.add(msg_ts)
+                            self._save_processed_messages()
+
                             # RETURN - wait for approval via interactive handler
                             return
                         else:
@@ -600,17 +610,11 @@ class SlackLeaveBotPolling:
 
         # IMPORTANT: WFH/On Duty verification is NOT supported via Zoho People API
         # The On Duty form is not accessible through the API endpoints we have access to
+        # For WFH, we skip Zoho verification but still track for reminder follow-ups
         if is_wfh:
             logger.info("WFH request detected - Zoho verification skipped (On Duty API not available)")
-            # Send acknowledgment for WFH without verification
-            formatted_dates = self._format_dates_for_display(leave_dates)
-            message = (
-                f"Hi <@{user_id}>, I see you're planning to WFH on {formatted_dates}. "
-                f"Please ensure you've applied for On Duty (WFH) on Zoho People."
-            )
-            self._send_thread_reply(self.leave_channel_id, msg_ts, message)
-            logger.info(f"Sent WFH acknowledgment to {user_name}")
-            return  # Skip further processing for WFH
+            # For WFH, leave_found remains False (can't verify via API)
+            # Will send reminder to apply on Zoho and track for follow-ups
 
         if self.zoho_configured:
             try:
@@ -695,6 +699,12 @@ class SlackLeaveBotPolling:
                     message_ts=msg_ts,
                     leave_dates=[d.strftime("%Y-%m-%d") for d in leave_dates]
                 )
+
+        # CRITICAL: Mark as processed ONLY after ALL processing complete
+        # This ensures message is re-processed if bot crashes mid-processing
+        self.processed_messages.add(msg_ts)
+        self._save_processed_messages()
+        logger.debug(f"Message {msg_ts} fully processed and marked")
 
     def process_approved_leave(self, approval_request):
         """

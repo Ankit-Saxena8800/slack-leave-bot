@@ -55,6 +55,7 @@ class ApprovalRequest:
     rejected_at: Optional[str] = None
 
     auto_approved: bool = False
+    is_wfh: bool = False  # Track if this is WFH/On Duty request
     rejection_reason: Optional[str] = None
     escalated_to_hr: bool = False
 
@@ -79,6 +80,7 @@ class ApprovalRequest:
             'approved_at': self.approved_at,
             'rejected_at': self.rejected_at,
             'auto_approved': self.auto_approved,
+            'is_wfh': self.is_wfh,
             'rejection_reason': self.rejection_reason,
             'escalated_to_hr': self.escalated_to_hr,
             'metadata': self.metadata
@@ -109,6 +111,7 @@ class ApprovalRequest:
             approved_at=data.get('approved_at'),
             rejected_at=data.get('rejected_at'),
             auto_approved=data.get('auto_approved', False),
+            is_wfh=data.get('is_wfh', False),
             rejection_reason=data.get('rejection_reason'),
             escalated_to_hr=data.get('escalated_to_hr', False),
             metadata=data.get('metadata', {})
@@ -293,6 +296,20 @@ class ApprovalWorkflowEngine:
             if not leave_dates or not isinstance(leave_dates, list):
                 logger.error("Invalid leave_dates: must be a non-empty list")
                 return None
+
+            # Validate date range (must be within past 7 days to future 365 days)
+            from datetime import datetime
+            now = datetime.now()
+            min_allowed_date = now - timedelta(days=7)
+            max_allowed_date = now + timedelta(days=365)
+
+            for leave_date in leave_dates:
+                if leave_date < min_allowed_date:
+                    logger.error(f"Leave date {leave_date.date()} is too far in the past (older than 7 days)")
+                    return None
+                if leave_date > max_allowed_date:
+                    logger.error(f"Leave date {leave_date.date()} is too far in the future (more than 365 days ahead)")
+                    return None
 
             # Calculate leave days
             leave_days = len(leave_dates)

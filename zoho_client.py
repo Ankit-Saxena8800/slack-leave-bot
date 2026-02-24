@@ -3,11 +3,33 @@ Zoho People API Client for Leave Management
 """
 import os
 import requests
+import re
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Any
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def _scrub_sensitive_data(text: str) -> str:
+    """Remove sensitive tokens and credentials from text before logging"""
+    if not text:
+        return text
+
+    # Remove access tokens (typically start with "1000.")
+    text = re.sub(r'1000\.[a-f0-9]{32,}', '[REDACTED_TOKEN]', text, flags=re.IGNORECASE)
+
+    # Remove any OAuth tokens
+    text = re.sub(r'access_token["\']?\s*[:=]\s*["\']?[a-zA-Z0-9._-]{20,}', 'access_token=[REDACTED]', text, flags=re.IGNORECASE)
+    text = re.sub(r'refresh_token["\']?\s*[:=]\s*["\']?[a-zA-Z0-9._-]{20,}', 'refresh_token=[REDACTED]', text, flags=re.IGNORECASE)
+
+    # Remove client secrets
+    text = re.sub(r'client_secret["\']?\s*[:=]\s*["\']?[a-zA-Z0-9]{20,}', 'client_secret=[REDACTED]', text, flags=re.IGNORECASE)
+
+    # Remove authorization headers
+    text = re.sub(r'Authorization["\']?\s*[:=]\s*["\']?Bearer\s+[a-zA-Z0-9._-]{20,}', 'Authorization=Bearer [REDACTED]', text, flags=re.IGNORECASE)
+
+    return text
 
 
 class ZohoClient:
@@ -38,7 +60,7 @@ class ZohoClient:
         }
 
         try:
-            response = requests.post(token_url, data=payload, timeout=30)
+            response = requests.post(token_url, data=payload, timeout=10)
             response.raise_for_status()
             token_data = response.json()
 
@@ -50,10 +72,10 @@ class ZohoClient:
             return self.access_token
 
         except requests.exceptions.Timeout as e:
-            logger.error(f"Zoho token refresh timed out after 30s: {e}")
+            logger.error(f"Zoho token refresh timed out after 10s: {_scrub_sensitive_data(str(e))}")
             raise
         except requests.exceptions.RequestException as e:
-            logger.error(f"Failed to refresh Zoho token: {e}")
+            logger.error(f"Failed to refresh Zoho token: {_scrub_sensitive_data(str(e))}")
             raise
 
     def _make_request(self, method: str, endpoint: str, params: Dict = None, data: Dict = None) -> Dict:
@@ -74,16 +96,16 @@ class ZohoClient:
                 headers=headers,
                 params=params,
                 json=data,
-                timeout=30  # 30 second timeout to prevent hanging
+                timeout=10  # 10 second timeout to prevent hanging
             )
             response.raise_for_status()
             return response.json()
 
         except requests.exceptions.Timeout as e:
-            logger.error(f"Zoho API request timed out after 30s: {e}")
+            logger.error(f"Zoho API request timed out after 10s: {_scrub_sensitive_data(str(e))}")
             raise
         except requests.exceptions.RequestException as e:
-            logger.error(f"Zoho API request failed: {e}")
+            logger.error(f"Zoho API request failed: {_scrub_sensitive_data(str(e))}")
             raise
 
     def get_manager_info(self, email: str) -> Optional[Dict[str, Any]]:
@@ -514,14 +536,19 @@ class ZohoClient:
 
         logger.info(f"Checking {'WFH/On Duty' if is_wfh else 'leaves'} across {len(dates_by_year)} calendar year(s): {list(dates_by_year.keys())}")
 
-        # Query Zoho for each calendar year
+        # Query Zoho for each calendar year (optimized to query only ±30 days around requested dates)
         all_leaves = []
         for year in sorted(dates_by_year.keys()):
-            # Query entire calendar year
-            from_date = datetime(year, 1, 1)
-            to_date = datetime(year, 12, 31)
+            # OPTIMIZED: Query only ±30 days around min/max dates instead of entire year
+            year_dates = dates_by_year[year]
+            min_date = min(year_dates)
+            max_date = max(year_dates)
 
-            logger.info(f"Querying Zoho for year {year}: {from_date.date()} to {to_date.date()}")
+            # Add 30-day buffer before and after
+            from_date = max(min_date - timedelta(days=30), datetime(year, 1, 1))
+            to_date = min(max_date + timedelta(days=30), datetime(year, 12, 31))
+
+            logger.info(f"Querying Zoho for year {year}: {from_date.date()} to {to_date.date()} (±30 days around {min_date.date()} to {max_date.date()})")
 
             # Query regular leave records
             year_leaves = self.get_employee_leaves(employee_id, from_date, to_date)

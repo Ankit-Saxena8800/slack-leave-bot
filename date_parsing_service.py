@@ -33,12 +33,26 @@ class DateRange:
 
     def get_dates(self) -> List[datetime]:
         """Get all dates in range (excluding weekends if working_days_only)"""
+        # Sanity check: prevent infinite loop if start > end
+        if self.start_date > self.end_date:
+            logger.warning(f"Invalid date range: start {self.start_date} > end {self.end_date}, returning empty list")
+            return []
+
         dates = []
         current = self.start_date
+        max_iterations = 366  # Prevent infinite loop (max 1 year)
+        iteration = 0
+
         while current <= self.end_date:
+            if iteration >= max_iterations:
+                logger.error(f"Date range exceeded {max_iterations} days, possible infinite loop prevented")
+                break
+
             if not self.working_days_only or current.weekday() < 5:  # Mon-Fri
                 dates.append(current)
             current += timedelta(days=1)
+            iteration += 1
+
         return dates
 
 
