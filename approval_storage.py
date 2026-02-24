@@ -50,14 +50,17 @@ class ApprovalStorage:
 
     def _write_data(self, data: Dict[str, Any]):
         """
-        Write data to JSON file
+        Write data to JSON file with atomic write
 
         Args:
             data: Data dictionary to write
         """
         try:
-            with open(self.storage_file, 'w') as f:
+            # Write to temp file first, then rename atomically
+            temp_file = f"{self.storage_file}.tmp"
+            with open(temp_file, 'w') as f:
                 json.dump(data, f, indent=2, default=str)
+            os.replace(temp_file, self.storage_file)
         except Exception as e:
             logger.error(f"Failed to write approval storage: {e}")
 
@@ -129,6 +132,44 @@ class ApprovalStorage:
             except Exception as e:
                 logger.error(f"Failed to load approval request: {e}")
                 return None
+
+    def atomic_update_request(self, request_id: str, update_fn) -> bool:
+        """
+        Atomically load, update, and save a request to prevent race conditions
+
+        Args:
+            request_id: Request ID
+            update_fn: Function that takes request_data dict and returns updated dict
+
+        Returns:
+            True if updated successfully
+        """
+        with self.lock:
+            try:
+                # Load current data
+                data = self._read_data()
+                requests = data.get("approval_requests", [])
+
+                # Find request
+                for idx, req in enumerate(requests):
+                    if req.get("request_id") == request_id:
+                        # Apply update function
+                        updated_req = update_fn(req.copy())
+                        if updated_req:
+                            updated_req["updated_at"] = datetime.now().isoformat()
+                            requests[idx] = updated_req
+                            data["approval_requests"] = requests
+                            self._write_data(data)
+                            logger.debug(f"Atomically updated request: {request_id}")
+                            return True
+                        return False
+
+                logger.error(f"Request not found for atomic update: {request_id}")
+                return False
+
+            except Exception as e:
+                logger.error(f"Failed atomic update: {e}")
+                return False
 
     def load_pending(self) -> List[Dict[str, Any]]:
         """

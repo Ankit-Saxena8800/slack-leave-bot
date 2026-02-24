@@ -435,6 +435,20 @@ class ApprovalWorkflowEngine:
 
             request = ApprovalRequest.from_dict(request_data)
 
+            # Check if request has expired (default timeout is 48 hours)
+            if request.created_at:
+                created_at = datetime.fromisoformat(request.created_at)
+                timeout_hours = self.config.approval_timeout_hours if self.config else 48
+                expiry_time = created_at + timedelta(hours=timeout_hours)
+
+                if datetime.now() > expiry_time:
+                    logger.warning(f"Approval request {request_id} has expired (created {created_at}, timeout {timeout_hours}h)")
+                    # Mark as expired
+                    request.status = "expired"
+                    request.updated_at = datetime.now().isoformat()
+                    self.storage.save_request(request.to_dict())
+                    return False
+
             # Verify approver
             if request.current_level >= len(request.approval_chain):
                 logger.error(f"Invalid approval level for request: {request_id}")
@@ -469,6 +483,11 @@ class ApprovalWorkflowEngine:
         Returns:
             True if handled successfully
         """
+        # Idempotency check: prevent double-approval (race condition protection)
+        if approver.status == 'approved':
+            logger.warning(f"Level {approver.level} already approved for request {request.request_id} - concurrent approval detected")
+            return True  # Already approved, treat as success
+
         # Mark current level as approved
         approver.status = 'approved'
         approver.approved_at = datetime.now().isoformat()

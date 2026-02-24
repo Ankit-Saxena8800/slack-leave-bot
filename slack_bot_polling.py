@@ -476,13 +476,24 @@ class SlackLeaveBotPolling:
             logger.debug(f"Skipping already processed message: {msg_ts}")
             return
 
-        # Skip bot messages
-        if message.get("bot_id") or message.get("subtype"):
-            self.processed_messages.add(msg_ts)  # Mark as processed
-            return
+        # Handle edited messages (message_changed subtype)
+        subtype = message.get("subtype")
+        if subtype == "message_changed":
+            # Extract the edited message content
+            edited_message = message.get("message", {})
+            text = edited_message.get("text", "")
+            user_id = edited_message.get("user")
+            # Use the original message timestamp for tracking
+            msg_ts = edited_message.get("ts", msg_ts)
+            logger.info(f"Processing edited message {msg_ts}: {text[:50]}...")
+        else:
+            # Skip bot messages and other subtypes (but not message_changed)
+            if message.get("bot_id") or subtype:
+                self.processed_messages.add(msg_ts)  # Mark as processed
+                return
 
-        text = message.get("text", "")
-        user_id = message.get("user")
+            text = message.get("text", "")
+            user_id = message.get("user")
 
         if not text or not user_id:
             return

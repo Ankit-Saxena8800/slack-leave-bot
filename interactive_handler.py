@@ -147,6 +147,14 @@ class InteractiveHandler:
                     except Exception as e:
                         logger.error(f"Error in approval completion callback: {e}", exc_info=True)
                         logger.warning("Employee notified but Zoho verification may not have been triggered")
+
+                        # Mark request as callback_failed for manual retry
+                        from datetime import datetime
+                        request.status = "callback_failed"
+                        request.metadata["callback_error"] = str(e)
+                        request.metadata["callback_failed_at"] = datetime.now().isoformat()
+                        storage.save_request(request.to_dict())
+                        logger.error(f"Marked approval request {request_id} as callback_failed - requires manual intervention")
                 else:
                     logger.warning("No approval completion callback registered - Zoho verification skipped")
 
