@@ -80,12 +80,15 @@ PARTIAL_DAY_PATTERNS = [
 ZOHO_APPLIED_PATTERNS = [
     r'applied\s+(on\s+)?zoho',
     r'zoho\s+(done|applied|submitted|completed)',
-    r'already\s+applied',
-    r'applied\s+already',
+    r'already\s+(been\s+)?(applied|submitted)',  # "already applied", "already been submitted"
+    r'(applied|submitted)\s+already',
+    r'(leave|request)\s+(has\s+)?(been\s+)?(applied|submitted)',  # "leave has been submitted", "request applied"
     r'leave\s+applied',
     r'applied\s+leave\s+(on\s+)?zoho',
     r'zoho\s+pe\s+apply',
     r'zoho\s+par\s+apply',
+    r'intimated\s+via\s+email',  # "intimated via email"
+    r'already\s+intimated',
     r'zoho\s+mein\s+apply',
 ]
 
@@ -104,7 +107,9 @@ class SlackLeaveBotPolling:
         # DRY RUN MODE - logs only, no Slack messages
         self.dry_run = os.getenv("DRY_RUN", "false").lower() == "true"
 
-        self.client = WebClient(token=self.token)
+        # Disable automatic retries to prevent duplicate messages
+        # Our deduplication logic handles failures properly
+        self.client = WebClient(token=self.token, retry_handlers=[])
 
         # Check if Zoho is configured
         self.zoho_configured = all([
