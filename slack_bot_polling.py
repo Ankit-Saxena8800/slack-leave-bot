@@ -439,28 +439,40 @@ class SlackLeaveBotPolling:
             logger.info(f"[{call_id}] First time sending this message (no dedup entry)")
 
         try:
+            logger.info(f"[{call_id}] ⚡ ABOUT TO SEND MESSAGE - ts={thread_ts}, text_preview={text[:80]}")
             logger.info(f"[{call_id}] Calling chat_postMessage API now...")
+
+            # Call Slack API
             response = self.client.chat_postMessage(
                 channel=channel,
                 thread_ts=thread_ts,
                 text=text
             )
-            logger.info(f"[{call_id}] chat_postMessage SUCCESS - ts={response.get('ts', 'unknown')}")
+
+            response_ts = response.get('ts', 'unknown')
+            logger.info(f"[{call_id}] ✅ chat_postMessage SUCCESS - response_ts={response_ts}, thread_ts={thread_ts}")
+            logger.warning(f"[{call_id}] MESSAGE SENT SUCCESSFULLY - Check Slack for duplicate at ts={response_ts}")
 
             # Record this message with timestamp
             self._recent_messages[dedup_key] = now
+            logger.info(f"[{call_id}] Cached dedup entry for 5 minutes")
 
             # Clean up old entries (keep last 10 minutes in cache)
+            old_count = len(self._recent_messages)
             self._recent_messages = {
                 k: v for k, v in self._recent_messages.items()
                 if now - v < 600
             }
+            if len(self._recent_messages) < old_count:
+                logger.info(f"[{call_id}] Cleaned {old_count - len(self._recent_messages)} expired cache entries")
 
             # Persist to disk to survive restarts
             self._save_recent_messages()
+            logger.info(f"[{call_id}] Persisted cache to disk")
 
         except SlackApiError as e:
-            logger.error(f"[{call_id}] chat_postMessage FAILED: {e}")
+            logger.error(f"[{call_id}] ❌ chat_postMessage FAILED: {e}")
+            # DO NOT cache failed sends - allow retry
 
     def _send_dm(self, user_id: str, text: str):
         """Send a direct message to a user"""
@@ -534,6 +546,13 @@ class SlackLeaveBotPolling:
         if msg_ts in self.processed_messages:
             logger.debug(f"Skipping already processed message: {msg_ts}")
             return
+
+        # IMMEDIATELY mark as processing to prevent race conditions
+        # If two polling cycles run simultaneously, only one will process this message
+        logger.info(f"🔒 LOCKING message {msg_ts} for processing...")
+        self.processed_messages.add(msg_ts)
+        self._save_processed_messages()
+        logger.info(f"✅ Message {msg_ts} marked as processing - race condition prevented")
 
         # Handle edited messages (message_changed subtype)
         subtype = message.get("subtype")
