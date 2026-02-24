@@ -62,6 +62,20 @@ LEAVE_KEYWORDS = [
     r'\bmedical\s+(emergency|appointment)\b',  # "medical emergency"
 ]
 
+# Patterns for partial day absences (don't require Zoho leave application)
+# These are informational messages, not full leave days
+PARTIAL_DAY_PATTERNS = [
+    r'\bleaving\s+early\b',           # "leaving early", "leaving early today"
+    r'\bcoming\s+late\b',             # "coming late", "coming late today"
+    r'\bwill\s+be\s+late\b',          # "will be late"
+    r'\brunning\s+late\b',            # "running late"
+    r'\blate\s+today\b',              # "late today"
+    r'\bearly\s+(today|tomorrow)\b',  # "early today", "early tomorrow"
+    r'\bstep(ping)?\s+out\b',         # "stepping out", "step out"
+    r'\bout\s+for\s+\d+\s*(hour|min)', # "out for 2 hours", "out for 30 mins"
+    r'\b(be\s+)?back\s+(in|by)\s+\d+', # "back in 2 hours", "back by 3pm"
+]
+
 # Patterns that indicate Zoho was already applied - skip reminder
 ZOHO_APPLIED_PATTERNS = [
     r'applied\s+(on\s+)?zoho',
@@ -258,6 +272,22 @@ class SlackLeaveBotPolling:
         text_lower = text.lower()
         for pattern in ZOHO_APPLIED_PATTERNS:
             if re.search(pattern, text_lower, re.IGNORECASE):
+                return True
+        return False
+
+    def _is_partial_day_absence(self, text: str) -> bool:
+        """
+        Check if message is about partial day absence (leaving early, coming late)
+        These don't require Zoho leave applications, so bot should not send reminders
+
+        Returns:
+            True if it's a partial day absence (skip Zoho reminder)
+            False if it's a full leave day (needs Zoho application)
+        """
+        text_lower = text.lower()
+        for pattern in PARTIAL_DAY_PATTERNS:
+            if re.search(pattern, text_lower, re.IGNORECASE):
+                logger.info(f"Detected partial day absence: pattern '{pattern}' matched")
                 return True
         return False
 
@@ -585,6 +615,19 @@ class SlackLeaveBotPolling:
             return
 
         logger.info(f"Processing leave message {msg_ts} from user {user_id}: {text[:50]}...")
+
+        # Check if this is a partial day absence (leaving early, coming late)
+        # These don't require Zoho leave applications, so skip reminders
+        if self._is_partial_day_absence(text):
+            logger.info(f"⏱️  Partial day absence detected (leaving early/coming late) - skipping Zoho reminder for {user_name}")
+            # Acknowledge but don't send Zoho reminder
+            try:
+                acknowledgment = f"👋 Got it <@{user_id}>! No Zoho application needed for partial day absences."
+                self._send_thread_reply(self.leave_channel_id, msg_ts, acknowledgment)
+                logger.info(f"Sent acknowledgment for partial day absence to {user_name}")
+            except Exception as e:
+                logger.error(f"Failed to send partial day acknowledgment: {e}")
+            return
 
         # Check if user is excluded (contractor/intern)
         excluded_filter = get_excluded_users_filter()
