@@ -100,11 +100,15 @@ class DateParsingService:
         """Compile regex patterns for date parsing"""
         # Date range patterns (ordered by specificity - most specific first!)
         self.range_patterns = [
-            # "23rd Feb 2026 to 25th Feb 2026" - Full date with year
+            # "from 23rd Feb 2026 to 9th March 2026" - with "from" prefix and years (MUST BE FIRST!)
+            re.compile(r'from\s+(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4})\s+to\s+(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4})', re.IGNORECASE),
+            # "from Feb 23 2026 to March 9 2026" - Month first with years
+            re.compile(r'from\s+(\w+\s+\d{1,2}(?:st|nd|rd|th)?\s+\d{4})\s+to\s+(\w+\s+\d{1,2}(?:st|nd|rd|th)?\s+\d{4})', re.IGNORECASE),
+            # "23rd Feb 2026 to 25th Feb 2026" - Full date with year (no "from")
             re.compile(r'(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4})\s+to\s+(\d{1,2}(?:st|nd|rd|th)?\s+\w+\s+\d{4})', re.IGNORECASE),
-            # "Feb 23 2026 to Feb 25 2026" - Month first with year
+            # "Feb 23 2026 to Feb 25 2026" - Month first with year (no "from")
             re.compile(r'(\w+\s+\d{1,2}(?:st|nd|rd|th)?\s+\d{4})\s+to\s+(\w+\s+\d{1,2}(?:st|nd|rd|th)?\s+\d{4})', re.IGNORECASE),
-            # "from Jan 15 to Jan 20", "from 15th Jan to 20th Jan"
+            # "from Jan 15 to Jan 20", "from 15th Jan to 20th Jan" (no year)
             re.compile(r'from\s+(\w+\s+\d{1,2}|\d{1,2}\s+\w+)\s+to\s+(\w+\s+\d{1,2}|\d{1,2}\s+\w+)', re.IGNORECASE),
             # "Jan 15 - Jan 20", "15 Jan - 20 Jan"
             re.compile(r'(\w+\s+\d{1,2}|\d{1,2}\s+\w+)\s*-\s*(\w+\s+\d{1,2}|\d{1,2}\s+\w+)', re.IGNORECASE),
@@ -195,13 +199,15 @@ class DateParsingService:
         Returns:
             ParsedDateResult or None
         """
-        for pattern in self.range_patterns:
+        for i, pattern in enumerate(self.range_patterns):
             match = pattern.search(text)
             if match:
+                logger.info(f"Date range pattern #{i} matched: '{match.group(0)}'")
                 try:
                     date_range = self._extract_range_from_match(match, text)
                     if date_range:
                         dates = date_range.get_dates()
+                        logger.info(f"Parsed date range: {date_range.start_date.date()} to {date_range.end_date.date()} ({len(dates)} dates)")
                         if len(dates) <= self.max_range_days:
                             return ParsedDateResult(
                                 dates=dates,
@@ -210,8 +216,10 @@ class DateParsingService:
                                 confidence=0.95,
                                 parsed_fragments=[match.group(0)]
                             )
+                        else:
+                            logger.warning(f"Date range too long: {len(dates)} days (max {self.max_range_days})")
                 except Exception as e:
-                    logger.debug(f"Failed to parse range: {e}")
+                    logger.warning(f"Failed to parse range from pattern #{i}: {e}")
                     continue
 
         return None
