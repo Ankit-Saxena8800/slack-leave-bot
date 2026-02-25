@@ -268,6 +268,22 @@ class ReminderTracker:
             self._save()
             logger.info(f"Marked reminder resolved for {user_id}")
 
+    def update_leave_dates(self, user_id: str, message_ts: str, new_dates: List[str]):
+        """
+        Update the leave dates for a reminder (used for partial matches)
+
+        Args:
+            user_id: Slack user ID
+            message_ts: Message timestamp
+            new_dates: New list of leave dates (ISO format) - typically the missing dates
+        """
+        key = f"{user_id}_{message_ts}"
+        if key in self.reminders:
+            old_dates = self.reminders[key]["leave_dates"]
+            self.reminders[key]["leave_dates"] = new_dates
+            self._save()
+            logger.info(f"Updated leave dates for {user_id}: {len(old_dates)} → {len(new_dates)} dates (partial match)")
+
     def is_already_tracked(self, user_id: str, message_ts: str) -> bool:
         """Check if this message is already being tracked"""
         key = f"{user_id}_{message_ts}"

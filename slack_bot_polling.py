@@ -822,6 +822,8 @@ class SlackLeaveBotPolling:
                     is_wfh=is_wfh
                 )
                 leave_found = zoho_result.get("found", False)
+                missing_dates = zoho_result.get("missing_dates", [])
+
                 if zoho_result.get("error"):
                     logger.warning(f"Zoho error: {zoho_result['error']}")
 
@@ -832,9 +834,9 @@ class SlackLeaveBotPolling:
             except Exception as e:
                 logger.error(f"Zoho check failed: {e}")
 
-        # SIMPLE LOGIC: Only two possible responses
+        # ENHANCED LOGIC: Handle all/partial/none scenarios
         if leave_found:
-            # Leave found in Zoho - Thank the user
+            # All dates found in Zoho - Thank the user
             message = render_template('thread_reply.leave_found', {'user_id': user_id})
             if not message:
                 # Fallback if template fails
@@ -858,8 +860,44 @@ class SlackLeaveBotPolling:
                 except Exception as e:
                     logger.error(f"Failed to record analytics: {e}")
 
+        elif missing_dates and len(missing_dates) < len(leave_dates):
+            # PARTIAL MATCH: Some dates found, some missing
+            found_count = len(leave_dates) - len(missing_dates)
+            missing_dates_str = ", ".join([d.strftime("%b %d, %Y") for d in missing_dates])
+
+            message = f"Hi <@{user_id}>, I found {found_count} date(s) in Zoho, but these dates are still missing: *{missing_dates_str}*. Please apply for these dates on Zoho."
+
+            self._send_thread_reply(self.leave_channel_id, msg_ts, message)
+            logger.info(f"⚠️ Partial match for {user_name}: {found_count}/{len(leave_dates)} found, missing: {missing_dates_str}")
+
+            # Record analytics (zoho_applied=False because incomplete)
+            if self.analytics:
+                try:
+                    self.analytics.record_leave_mention(
+                        user_id=user_id,
+                        user_email=user_email,
+                        user_name=user_name,
+                        event_type='leave_mentioned',
+                        message_ts=msg_ts,
+                        leave_dates=leave_dates,
+                        zoho_applied=False
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to record analytics: {e}")
+
+            # Track for 12-hour follow-up reminder (only for missing dates)
+            if not self.reminder_tracker.is_already_tracked(user_id, msg_ts):
+                self.reminder_tracker.add_reminder(
+                    user_id=user_id,
+                    user_email=user_email,
+                    user_name=user_name,
+                    channel_id=self.leave_channel_id,
+                    message_ts=msg_ts,
+                    leave_dates=[d.strftime("%Y-%m-%d") for d in missing_dates]  # Only missing dates
+                )
+
         else:
-            # Leave NOT found - remind to apply on Zoho
+            # NO dates found - remind to apply on Zoho
             message = render_template('thread_reply.leave_not_found', {
                 'user_id': user_id,
                 'leave_dates': leave_dates
@@ -937,6 +975,8 @@ class SlackLeaveBotPolling:
                         is_wfh=is_wfh
                     )
                     leave_found = zoho_result.get("found", False)
+                    missing_dates = zoho_result.get("missing_dates", [])
+
                     if zoho_result.get("error"):
                         logger.warning(f"Zoho error: {zoho_result['error']}")
 
@@ -948,7 +988,7 @@ class SlackLeaveBotPolling:
                     logger.error(f"Zoho check failed: {e}")
 
             if leave_found:
-                # Leave found - send confirmation
+                # All dates found - send confirmation
                 message = render_template('thread_reply.leave_found', {'user_id': user_id})
                 if not message:
                     message = f"Thanks <@{user_id}>! Your leave is approved and found in Zoho."
@@ -970,8 +1010,34 @@ class SlackLeaveBotPolling:
                         )
                     except Exception as e:
                         logger.error(f"Failed to record analytics: {e}")
+
+            elif missing_dates and len(missing_dates) < len(leave_dates):
+                # PARTIAL MATCH: Some dates found, some missing
+                found_count = len(leave_dates) - len(missing_dates)
+                missing_dates_str = ", ".join([d.strftime("%b %d, %Y") for d in missing_dates])
+
+                message = f"Hi <@{user_id}>, your leave is approved! I found {found_count} date(s) in Zoho, but these dates are still missing: *{missing_dates_str}*. Please apply for these dates on Zoho."
+
+                self._send_thread_reply(self.leave_channel_id, msg_ts, message)
+                logger.info(f"⚠️ Partial match for approved leave - {user_name}: {found_count}/{len(leave_dates)} found, missing: {missing_dates_str}")
+
+                # Record analytics (zoho_applied=False because incomplete)
+                if self.analytics:
+                    try:
+                        self.analytics.record_leave_mention(
+                            user_id=user_id,
+                            user_email=user_email,
+                            user_name=user_name,
+                            event_type='leave_mentioned',
+                            message_ts=msg_ts,
+                            leave_dates=leave_dates,
+                            zoho_applied=False
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to record analytics: {e}")
+
             else:
-                # Leave NOT found - remind to apply on Zoho
+                # NO dates found - remind to apply on Zoho
                 message = render_template('thread_reply.leave_not_found', {
                     'user_id': user_id,
                     'leave_dates': leave_dates
@@ -1045,8 +1111,10 @@ class SlackLeaveBotPolling:
                     is_wfh=True  # Check both leave and on-duty for reminders
                 )
 
+                missing_dates = zoho_result.get("missing_dates", [])
+
                 if zoho_result.get("found"):
-                    # Leave now found in Zoho - resolved!
+                    # All dates now found in Zoho - resolved!
                     self.reminder_tracker.mark_resolved(user_id, message_ts)
                     logger.info(f"{user_name} has now applied on Zoho - resolved")
 
@@ -1073,6 +1141,31 @@ class SlackLeaveBotPolling:
                         except Exception as e:
                             logger.error(f"Failed to record analytics: {e}")
 
+                    continue
+
+                elif missing_dates and len(missing_dates) < len(leave_dates):
+                    # PARTIAL MATCH: Some dates applied, some still missing
+                    found_count = len(leave_dates) - len(missing_dates)
+                    missing_dates_str = ", ".join([d.strftime("%b %d, %Y") for d in missing_dates])
+
+                    # Update reminder to track only missing dates
+                    self.reminder_tracker.update_leave_dates(
+                        user_id=user_id,
+                        message_ts=message_ts,
+                        new_dates=[d.strftime("%Y-%m-%d") for d in missing_dates]
+                    )
+
+                    # Send partial resolution message
+                    partial_msg = f"👍 Good progress <@{user_id}>! I found {found_count} date(s) in Zoho, but these dates are still missing: *{missing_dates_str}*. Please apply for these remaining dates."
+
+                    try:
+                        self._send_thread_reply(channel_id, message_ts, partial_msg)
+                        logger.info(f"⚠️ Partial resolution for {user_name}: {found_count}/{len(leave_dates)} found, {len(missing_dates)} still missing")
+                    except Exception as e:
+                        logger.error(f"Failed to send partial resolution message: {e}")
+
+                    # Don't mark as resolved, let reminder continue for missing dates
+                    # But don't send escalation for this round since we already notified
                     continue
 
                 # Get manager info from Zoho People

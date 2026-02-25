@@ -259,7 +259,22 @@ class AutomatedZohoChecker:
                         logger.error(f"Failed to send Slack notification: {e}")
 
                 elif len(found_dates) > 0:
-                    logger.info(f"Partial match: {len(found_dates)}/{len(dates)} dates found")
+                    # PARTIAL MATCH: Some dates found, some missing
+                    missing_dates = [d for d in dates if d not in found_dates]
+                    missing_dates_str = ", ".join([d.strftime("%b %d, %Y") for d in missing_dates])
+
+                    logger.info(f"⚠️ Partial match: {len(found_dates)}/{len(dates)} dates found for {employee_name}, missing: {missing_dates_str}")
+
+                    # Send Slack notification about partial match
+                    try:
+                        self.slack_client.chat_postMessage(
+                            channel=self.leave_channel_id,
+                            thread_ts=message_ts,
+                            text=f"⚠️ Partial match for {employee_name}: Found {len(found_dates)} date(s) in Zoho, but these dates are still missing: *{missing_dates_str}*. Please apply for these dates."
+                        )
+                        logger.info("Partial match notification sent")
+                    except Exception as e:
+                        logger.error(f"Failed to send partial match notification: {e}")
 
                 else:
                     logger.info(f"WFH not found yet for {employee_name}")
