@@ -74,6 +74,12 @@ PARTIAL_DAY_PATTERNS = [
     r'\bstep(ping)?\s+out\b',         # "stepping out", "step out"
     r'\bout\s+for\s+\d+\s*(hour|min)', # "out for 2 hours", "out for 30 mins"
     r'\b(be\s+)?back\s+(in|by)\s+\d+', # "back in 2 hours", "back by 3pm"
+    r'\barriving\s+(at\s+)?(office|work)\s+(by|at)\s+\d+', # "arriving at office by 12", "arriving work at 11"
+    r'\breach(ing)?\s+(office|work)\s+(by|at)\s+\d+', # "reaching office by 12pm"
+    r'\bwill\s+(be\s+)?reach\s+(by|at)\s+\d+', # "will reach by 11am"
+    r'\bwill\s+be\s+(at|in)\s+(office|work)\s+(by|at)\s+\d+', # "will be at office by 12"
+    r'\bjoining\s+(late|by)\s+\d+', # "joining late", "joining by 12pm"
+    r'\b(be\s+)?there\s+(by|at)\s+\d+', # "be there by 12", "there at 11am"
 ]
 
 # Patterns that indicate Zoho was already applied - skip reminder
@@ -412,13 +418,14 @@ class SlackLeaveBotPolling:
         return None
 
     def _load_recent_messages(self):
-        """Load recent messages cache from persistent storage"""
+        """Load recent messages cache from persistent storage (includes fingerprints)"""
         cache_file = ".recent_messages_cache.json"
+        fingerprint_file = ".message_fingerprints.json"
         try:
+            # Load legacy dedup cache
             if os.path.exists(cache_file):
                 with open(cache_file, 'r') as f:
                     data = json.load(f)
-                    # Clean up expired entries on load (keep last 5 minutes)
                     now = time.time()
                     self._recent_messages = {
                         k: v for k, v in data.items()
@@ -427,46 +434,84 @@ class SlackLeaveBotPolling:
                     logger.info(f"Loaded {len(self._recent_messages)} recent message(s) from cache")
             else:
                 self._recent_messages = {}
+
+            # Load fingerprint cache (primary anti-duplicate mechanism)
+            if os.path.exists(fingerprint_file):
+                with open(fingerprint_file, 'r') as f:
+                    data = json.load(f)
+                    now = time.time()
+                    self._message_fingerprints = {
+                        k: v for k, v in data.items()
+                        if now - v < 300
+                    }
+                    logger.info(f"Loaded {len(self._message_fingerprints)} message fingerprint(s) from cache")
+            else:
+                self._message_fingerprints = {}
         except Exception as e:
-            logger.warning(f"Failed to load recent messages cache: {e}")
+            logger.warning(f"Failed to load dedup caches: {e}")
             self._recent_messages = {}
+            self._message_fingerprints = {}
 
     def _save_recent_messages(self):
-        """Save recent messages cache to persistent storage"""
+        """Save recent messages cache to persistent storage (includes fingerprints)"""
         cache_file = ".recent_messages_cache.json"
+        fingerprint_file = ".message_fingerprints.json"
         try:
-            # Write atomically using temp file
+            # Save legacy dedup cache
             temp_file = f"{cache_file}.tmp"
             with open(temp_file, 'w') as f:
                 json.dump(self._recent_messages, f, indent=2)
             os.replace(temp_file, cache_file)
+
+            # Save fingerprint cache (primary anti-duplicate mechanism)
+            temp_fingerprint = f"{fingerprint_file}.tmp"
+            with open(temp_fingerprint, 'w') as f:
+                json.dump(self._message_fingerprints, f, indent=2)
+            os.replace(temp_fingerprint, fingerprint_file)
         except Exception as e:
-            logger.error(f"Failed to save recent messages cache: {e}")
+            logger.error(f"Failed to save dedup caches: {e}")
 
     def _send_thread_reply(self, channel: str, thread_ts: str, text: str):
-        """Send a reply in a thread with persistent deduplication"""
+        """Send a reply in a thread with comprehensive anti-duplicate protection"""
         import uuid
+        import hashlib
         call_id = str(uuid.uuid4())[:8]
 
         if self.dry_run:
             logger.info(f"[DRY RUN] Would send thread reply: {text[:100]}...")
             return
 
-        # Deduplication: Check if we just sent this exact message to this thread
+        # MULTI-LAYER DEDUPLICATION STRATEGY
+        # Layer 1: Content-based fingerprint (prevents identical messages)
+        message_fingerprint = hashlib.md5(f"{channel}|{thread_ts}|{text}".encode()).hexdigest()
+
+        # Layer 2: Time-based dedup key (backwards compatible)
         dedup_key = f"{channel}_{thread_ts}_{text[:100]}"
+
         if not hasattr(self, '_recent_messages'):
             self._load_recent_messages()
+        if not hasattr(self, '_message_fingerprints'):
+            self._message_fingerprints = {}
 
-        # Check if we sent this message in the last 5 minutes (300 seconds)
-        # Increased from 60s to prevent duplicates across bot restarts
         now = time.time()
         dedup_window = 300  # 5 minutes
-        logger.info(f"[{call_id}] _send_thread_reply called - channel={channel}, thread_ts={thread_ts}, dedup_key={dedup_key[:50]}...")
 
+        logger.info(f"[{call_id}] _send_thread_reply called - channel={channel}, thread_ts={thread_ts}")
+        logger.info(f"[{call_id}] Message fingerprint: {message_fingerprint}")
+
+        # CHECK 1: Fingerprint-based dedup (exact content match)
+        if message_fingerprint in self._message_fingerprints:
+            last_sent = self._message_fingerprints[message_fingerprint]
+            if now - last_sent < dedup_window:
+                logger.error(f"[{call_id}] 🛑 DUPLICATE BLOCKED BY FINGERPRINT! (sent {now - last_sent:.1f}s ago)")
+                logger.error(f"[{call_id}] This exact message was already sent - PREVENTING DUPLICATE")
+                return
+
+        # CHECK 2: Legacy dedup key check
         if dedup_key in self._recent_messages:
             last_sent = self._recent_messages[dedup_key]
             if now - last_sent < dedup_window:
-                logger.warning(f"[{call_id}] DEDUP BLOCKED: Skipping duplicate message (sent {now - last_sent:.1f}s ago, window={dedup_window}s)")
+                logger.warning(f"[{call_id}] 🛑 DEDUP BLOCKED: Skipping duplicate message (sent {now - last_sent:.1f}s ago)")
                 return
             else:
                 logger.info(f"[{call_id}] Dedup check passed (last sent {now - last_sent:.1f}s ago)")
@@ -475,7 +520,17 @@ class SlackLeaveBotPolling:
 
         try:
             logger.info(f"[{call_id}] ⚡ ABOUT TO SEND MESSAGE - ts={thread_ts}, text_preview={text[:80]}")
-            logger.info(f"[{call_id}] Calling chat_postMessage API now...")
+
+            # PRE-FLIGHT CHECK: One final check before API call
+            # This catches race conditions where another thread started sending
+            if message_fingerprint in self._message_fingerprints:
+                last_sent = self._message_fingerprints[message_fingerprint]
+                if now - last_sent < 30:  # 30 second window for race conditions
+                    logger.error(f"[{call_id}] 🚨 RACE CONDITION DETECTED! Message send started {now - last_sent:.1f}s ago")
+                    logger.error(f"[{call_id}] Aborting to prevent duplicate - another thread is sending this")
+                    return
+
+            logger.info(f"[{call_id}] Pre-flight check passed - calling Slack API...")
 
             # Call Slack API
             response = self.client.chat_postMessage(
@@ -486,11 +541,12 @@ class SlackLeaveBotPolling:
 
             response_ts = response.get('ts', 'unknown')
             logger.info(f"[{call_id}] ✅ chat_postMessage SUCCESS - response_ts={response_ts}, thread_ts={thread_ts}")
-            logger.warning(f"[{call_id}] MESSAGE SENT SUCCESSFULLY - Check Slack for duplicate at ts={response_ts}")
+            logger.warning(f"[{call_id}] MESSAGE SENT SUCCESSFULLY - Slack response ts={response_ts}")
 
-            # Record this message with timestamp
+            # CRITICAL: Record BOTH fingerprint and dedup key to prevent duplicates
+            self._message_fingerprints[message_fingerprint] = now
             self._recent_messages[dedup_key] = now
-            logger.info(f"[{call_id}] Cached dedup entry for 5 minutes")
+            logger.info(f"[{call_id}] ✅ Cached fingerprint + dedup key (5 min protection)")
 
             # Clean up old entries (keep last 10 minutes in cache)
             old_count = len(self._recent_messages)
@@ -498,12 +554,16 @@ class SlackLeaveBotPolling:
                 k: v for k, v in self._recent_messages.items()
                 if now - v < 600
             }
+            self._message_fingerprints = {
+                k: v for k, v in self._message_fingerprints.items()
+                if now - v < 600
+            }
             if len(self._recent_messages) < old_count:
-                logger.info(f"[{call_id}] Cleaned {old_count - len(self._recent_messages)} expired cache entries")
+                logger.info(f"[{call_id}] Cleaned {old_count - len(self._recent_messages)} expired entries")
 
             # Persist to disk to survive restarts
             self._save_recent_messages()
-            logger.info(f"[{call_id}] Persisted cache to disk")
+            logger.info(f"[{call_id}] ✅ Persisted dedup cache to disk")
 
         except SlackApiError as e:
             logger.error(f"[{call_id}] ❌ chat_postMessage FAILED: {e}")
