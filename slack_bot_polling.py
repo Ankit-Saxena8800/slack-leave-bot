@@ -314,11 +314,21 @@ class SlackLeaveBotPolling:
         Check if message is about partial day absence (leaving early, coming late)
         These don't require Zoho leave applications, so bot should not send reminders
 
+        IMPORTANT: Skip partial day check if message has explicit WFH/Leave date lists
+        (e.g., "WFH: 27 Feb, 2 March" or "Leave: 3 March")
+
         Returns:
             True if it's a partial day absence (skip Zoho reminder)
             False if it's a full leave day (needs Zoho application)
         """
         text_lower = text.lower()
+
+        # Skip partial day check if message has explicit WFH/Leave date lists
+        # These patterns indicate the user is listing specific dates, not just mentioning partial day
+        if re.search(r'\b(wfh|work from home|leave)\s*:\s*\d', text_lower, re.IGNORECASE):
+            logger.info(f"Message contains explicit WFH/Leave date list - NOT treating as partial day")
+            return False
+
         for pattern in PARTIAL_DAY_PATTERNS:
             if re.search(pattern, text_lower, re.IGNORECASE):
                 logger.info(f"Detected partial day absence: pattern '{pattern}' matched")
