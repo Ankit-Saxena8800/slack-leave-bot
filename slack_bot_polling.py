@@ -97,18 +97,19 @@ PARTIAL_DAY_PATTERNS = [
 
 # Patterns that indicate Zoho was already applied - skip reminder
 ZOHO_APPLIED_PATTERNS = [
-    r'applied\s+(on\s+)?zoho',
+    r'applied.{0,50}zoho',                         # "applied on zoho", "applied for the same in zoho" (max 50 chars between)
+    r'apply.{0,50}zoho',                           # "apply on zoho", "will apply in zoho"
     r'zoho\s+(done|applied|submitted|completed)',
-    r'already\s+(been\s+)?(applied|submitted)',  # "already applied", "already been submitted"
+    r'already\s+(been\s+)?(applied|submitted)',    # "already applied", "already been submitted"
     r'(applied|submitted)\s+already',
     r'(leave|request)\s+(has\s+)?(been\s+)?(applied|submitted)',  # "leave has been submitted", "request applied"
     r'leave\s+applied',
-    r'applied\s+leave\s+(on\s+)?zoho',
-    r'zoho\s+pe\s+apply',
-    r'zoho\s+par\s+apply',
-    r'intimated\s+via\s+email',  # "intimated via email"
+    r'(have|has)\s+applied',                       # "I have applied", "has applied"
+    r'zoho\s+pe\s+apply',                          # Hindi
+    r'zoho\s+par\s+apply',                         # Hindi
+    r'zoho\s+mein\s+apply',                        # Hindi
+    r'intimated\s+via\s+email',                    # "intimated via email"
     r'already\s+intimated',
-    r'zoho\s+mein\s+apply',
 ]
 
 
