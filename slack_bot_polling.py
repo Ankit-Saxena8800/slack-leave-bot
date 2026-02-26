@@ -584,7 +584,7 @@ class SlackLeaveBotPolling:
 
             # AGGRESSIVE DUPLICATE CLEANUP: Check thread and delete duplicates
             try:
-                time.sleep(1.5)  # Wait for Slack to fully process the message
+                time.sleep(3.0)  # Wait 3s for Slack to fully process (duplicates can appear delayed)
                 logger.info(f"[{call_id}] 🔍 Checking thread for duplicate messages...")
 
                 thread_replies = self.client.conversations_replies(
