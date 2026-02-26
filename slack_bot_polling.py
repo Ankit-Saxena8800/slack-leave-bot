@@ -131,6 +131,15 @@ class SlackLeaveBotPolling:
         # Our deduplication logic handles failures properly
         self.client = WebClient(token=self.token, retry_handlers=[])
 
+        # Get bot's own user ID for duplicate detection
+        try:
+            auth_response = self.client.auth_test()
+            self.bot_user_id = auth_response.get('user_id')
+            logger.info(f"Bot user ID: {self.bot_user_id}")
+        except Exception as e:
+            logger.warning(f"Could not get bot user ID: {e}")
+            self.bot_user_id = None
+
         # Check if Zoho is configured
         self.zoho_configured = all([
             os.getenv("ZOHO_CLIENT_ID"),
@@ -562,6 +571,39 @@ class SlackLeaveBotPolling:
             response_ts = response.get('ts', 'unknown')
             logger.info(f"[{call_id}] ✅ chat_postMessage SUCCESS - response_ts={response_ts}, thread_ts={thread_ts}")
             logger.warning(f"[{call_id}] MESSAGE SENT SUCCESSFULLY - Slack response ts={response_ts}")
+
+            # AGGRESSIVE DUPLICATE CLEANUP: Check thread and delete duplicates
+            try:
+                time.sleep(1.5)  # Wait for Slack to fully process the message
+                logger.info(f"[{call_id}] 🔍 Checking thread for duplicate messages...")
+
+                thread_replies = self.client.conversations_replies(
+                    channel=channel,
+                    ts=thread_ts,
+                    limit=20  # Check last 20 messages in thread
+                )
+
+                bot_messages = []
+                for msg in thread_replies.get('messages', []):
+                    # Find messages from this bot with same text
+                    if (msg.get('bot_id') or msg.get('user') == self.bot_user_id) and msg.get('text') == text:
+                        bot_messages.append(msg)
+
+                if len(bot_messages) > 1:
+                    logger.error(f"[{call_id}] 🚨 DUPLICATE DETECTED! Found {len(bot_messages)} identical messages")
+                    # Keep the first message, delete the rest
+                    for duplicate in bot_messages[1:]:
+                        dup_ts = duplicate.get('ts')
+                        try:
+                            self.client.chat_delete(channel=channel, ts=dup_ts)
+                            logger.warning(f"[{call_id}] 🗑️  DELETED DUPLICATE message ts={dup_ts}")
+                        except Exception as del_err:
+                            logger.error(f"[{call_id}] Failed to delete duplicate: {del_err}")
+                else:
+                    logger.info(f"[{call_id}] ✅ No duplicates found - clean send!")
+
+            except Exception as cleanup_err:
+                logger.error(f"[{call_id}] Duplicate cleanup failed (non-critical): {cleanup_err}")
 
             # CRITICAL: Record BOTH fingerprint and dedup key to prevent duplicates
             self._message_fingerprints[message_fingerprint] = now
