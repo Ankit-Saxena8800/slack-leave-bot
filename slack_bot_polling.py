@@ -545,11 +545,17 @@ class SlackLeaveBotPolling:
 
             logger.info(f"[{call_id}] Pre-flight check passed - calling Slack API...")
 
-            # Call Slack API
+            # Generate unique client message ID for Slack deduplication
+            # Slack uses this to prevent duplicate messages even if API is called twice
+            client_msg_id = f"{message_fingerprint}-{int(now)}"
+            logger.info(f"[{call_id}] Using client_msg_id: {client_msg_id}")
+
+            # Call Slack API with client_msg_id for server-side deduplication
             response = self.client.chat_postMessage(
                 channel=channel,
                 thread_ts=thread_ts,
-                text=text
+                text=text,
+                client_msg_id=client_msg_id  # Slack deduplication key
             )
 
             response_ts = response.get('ts', 'unknown')
