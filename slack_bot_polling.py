@@ -711,13 +711,33 @@ class SlackLeaveBotPolling:
 
         # CRITICAL: Skip if already processed (check FIRST)
         if msg_ts in self.processed_messages:
-            logger.debug(f"Skipping already processed message: {msg_ts}")
+            logger.info(f"⚠️  Skipping already processed message: {msg_ts} (found in processed_messages set)")
             return
+
+        # ADDITIONAL CHECK: Skip if we've seen this exact timestamp in last 5 minutes
+        # This catches cases where processed_messages check somehow fails
+        try:
+            msg_ts_float = float(msg_ts)
+            current_time = time.time()
+            # Check if this timestamp is old (processed >1 minute ago)
+            if current_time - msg_ts_float > 60 and msg_ts_float < self.startup_timestamp + 600:
+                # Message is older than 1 minute but within 10 minutes of startup
+                # This is likely a duplicate from Slack API bug
+                logger.warning(f"🛑 DUPLICATE DETECTION: Skipping old message {msg_ts} (timestamp check)")
+                self.processed_messages.add(msg_ts)  # Add it to prevent future processing
+                self._save_processed_messages()
+                return
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Failed to parse timestamp {msg_ts}: {e}")
 
         # IMMEDIATELY mark as processing to prevent race conditions
         # If two polling cycles run simultaneously, only one will process this message
         logger.info(f"🔒 LOCKING message {msg_ts} for processing...")
+        logger.info(f"DEBUG: processed_messages set size BEFORE add: {len(self.processed_messages)}")
+        logger.info(f"DEBUG: msg_ts type: {type(msg_ts)}, value: {repr(msg_ts)}")
         self.processed_messages.add(msg_ts)
+        logger.info(f"DEBUG: processed_messages set size AFTER add: {len(self.processed_messages)}")
+        logger.info(f"DEBUG: Verifying msg_ts in set: {msg_ts in self.processed_messages}")
         self._save_processed_messages()
         logger.info(f"✅ Message {msg_ts} marked as processing - race condition prevented")
 
