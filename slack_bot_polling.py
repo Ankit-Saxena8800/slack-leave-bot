@@ -65,21 +65,34 @@ LEAVE_KEYWORDS = [
 # Patterns for partial day absences (don't require Zoho leave application)
 # These are informational messages, not full leave days
 PARTIAL_DAY_PATTERNS = [
-    r'\bleaving\s+early\b',           # "leaving early", "leaving early today"
-    r'\bcoming\s+late\b',             # "coming late", "coming late today"
-    r'\bwill\s+be\s+late\b',          # "will be late"
-    r'\brunning\s+late\b',            # "running late"
-    r'\blate\s+today\b',              # "late today"
-    r'\bearly\s+(today|tomorrow)\b',  # "early today", "early tomorrow"
-    r'\bstep(ping)?\s+out\b',         # "stepping out", "step out"
-    r'\bout\s+for\s+\d+\s*(hour|min)', # "out for 2 hours", "out for 30 mins"
-    r'\b(be\s+)?back\s+(in|by)\s+\d+', # "back in 2 hours", "back by 3pm"
-    r'\barriving\s+(at\s+)?(office|work)\s+(by|at)\s+\d+', # "arriving at office by 12", "arriving work at 11"
-    r'\breach(ing)?\s+(office|work)\s+(by|at)\s+\d+', # "reaching office by 12pm"
-    r'\bwill\s+(be\s+)?reach\s+(by|at)\s+\d+', # "will reach by 11am"
-    r'\bwill\s+be\s+(at|in)\s+(office|work)\s+(by|at)\s+\d+', # "will be at office by 12"
-    r'\bjoining\s+(late|by)\s+\d+', # "joining late", "joining by 12pm"
-    r'\b(be\s+)?there\s+(by|at)\s+\d+', # "be there by 12", "there at 11am"
+    # Leaving early patterns
+    r'\bleave\s+(the\s+)?(office|work)?\s*early\b',  # "leave early", "leaving early", "leave the office early"
+    r'\bleaving\s+early\b',                           # "leaving early"
+    r'\bgo(ing)?\s+early\b',                          # "going early"
+
+    # Coming/Arriving late patterns
+    r'\bcoming\s+late\b',                             # "coming late"
+    r'\bwill\s+be\s+late\b',                          # "will be late"
+    r'\brunning\s+late\b',                            # "running late"
+    r'\bstarting\s+(a\s+)?(little\s+)?late\b',        # "starting late", "starting a little late"
+    r'\blate\s+(today|tomorrow)\b',                   # "late today"
+    r'\breaching\s+by\s+\d+',                         # "reaching by 11", "reaching by 10:30"
+    r'\breach\s+(office|work|around|by|at)\s*\d*',   # "reach office", "reach by 11", "reach around 9:45"
+    r'\bwill\s+reach\s+(by|at|around)?\s*\d*',        # "will reach by 11", "will reach around 10"
+    r'\barriving\s+(at\s+)?(office|work)?\s*(by|at)?\s*\d*', # "arriving at office", "arriving by 12"
+    r'\bjoin(ing)?\s+(late|by|at|around)\s*\d*',     # "joining late", "joining by 12", "will join around 10"
+    r'\bin\s+(the\s+)?second\s+half\b',               # "in second half", "join in the second half"
+    r'\bhalf\s+day\b',                                # "half day"
+
+    # Temporary absence (not full leave)
+    r'\bstep(ping)?\s+out\b',                         # "stepping out", "step out"
+    r'\bout\s+for\s+\d+\s*(hour|min)',                # "out for 2 hours", "out for 30 mins"
+    r'\b(be\s+)?back\s+(in|by)\s+\d+',                # "back in 2 hours", "back by 3pm"
+
+    # Working from different office (not leave)
+    r'\bgoing\s+to\s+(the\s+)?[A-Z]{2,}\s+office\b',  # "going to ROC office", "going to Noida office"
+    r'\bworking\s+from\s+(the\s+)?[A-Z]{2,}\s+office\b', # "working from ROC office"
+    r'\bat\s+(the\s+)?[A-Z]{2,}\s+office\b',          # "at ROC office"
 ]
 
 # Patterns that indicate Zoho was already applied - skip reminder
